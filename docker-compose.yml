@@ -63,7 +63,7 @@ services:
       MINIO_BUCKET: docpro-person
       SESSION_SECRET: ${SESSION_SECRET:-change_me}
     ports:
-      - "3000:3000"
+      - "3456:3456"
 
 volumes:
   pgdata:
