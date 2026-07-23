@@ -172,7 +172,6 @@ export const updateDocument = createServerFn({ method: 'POST' })
         await deleteObject(ctx.bucket, doc.objectKey).catch(() => {})
       }
       // Re-ingest with the same document ID
-      const { ingestDocument } = await import('../ingest/pipeline')
       return ingestDocument({
         ownerId,
         file: { name: data.name ?? doc.name, mime: data.mime ?? 'application/octet-stream', size: data.size ?? buffer.length, buffer },
