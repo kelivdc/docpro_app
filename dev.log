@@ -1,0 +1,10 @@
+
+> dev
+> vite dev --port 3000
+
+
+  VITE v8.1.5  ready in 1233 ms
+
+  ➜  Local:   http://localhost:3000/
+  ➜  Network: use --host to expose
+7:17:25 PM [vite] (ssr) connected.

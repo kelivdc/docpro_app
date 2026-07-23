@@ -1,0 +1,70 @@
+# DocPro infra — VPS self-managed (AD-7, AR-7)
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: docpro-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-docpro}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-docpro_secret}
+      POSTGRES_DB: ${DB_NAME:-docpro}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-docpro}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: docpro-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-docpro}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-docpro_secret}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-docpro} ${MINIO_ROOT_PASSWORD:-docpro_secret};
+      mc mb -p local/docpro-person;
+      exit 0;
+      "
+
+  app:
+    build: .
+    container_name: docpro-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${DB_USER:-docpro}:${DB_PASSWORD:-docpro_secret}@postgres:5432/${DB_NAME:-docpro}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-docpro}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-docpro_secret}
+      MINIO_BUCKET: docpro-person
+      SESSION_SECRET: ${SESSION_SECRET:-change_me}
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:
+  miniodata:
