@@ -137,6 +137,7 @@ async function main() {
     await db.execute(sql.raw(`ALTER TABLE person.chunks ADD COLUMN IF NOT EXISTS ${col}`))
   }
   const docCols = [
+    'source_type text NOT NULL DEFAULT \'document\'',
     'chunks_count integer NOT NULL DEFAULT 0',
     'intelligence_score jsonb',
     'structure_json jsonb',

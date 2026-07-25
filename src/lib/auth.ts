@@ -5,7 +5,13 @@ import { db } from './db'
 import * as schema from './schema'
 
 export const auth = betterAuth({
-  trustedOrigins: ['https://docpro.nexonace.com'],
+  trustedOrigins: ['https://docpro.nexonace.com','http://localhost'],
+  advanced: {
+    ipAddress: {
+      ipAddressHeaders: ['x-forwarded-for'],
+      trustedProxies: ['127.0.0.1'],
+    },
+  },
   database: drizzleAdapter(db, {
     provider: 'pg',
     schema: {
