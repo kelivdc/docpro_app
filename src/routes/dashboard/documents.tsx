@@ -104,7 +104,7 @@ function intelligenceBadge(d: DocRow) {
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${color}`}
-      title={`Structure ${s.structureDetection ?? '-'}% · Heading ${s.headingDetection ?? '-'}% · Table ${s.tableDetection ?? '-'}% · OCR ${s.ocrConfidence ?? '-'}% · Metadata ${s.metadataCompleteness ?? '-'}%`}
+      title={`Document Intelligence — how well the text structure was detected. Structure ${s.structureDetection ?? '-'}% · Heading ${s.headingDetection ?? '-'}% · Table ${s.tableDetection ?? '-'}% · OCR ${s.ocrConfidence ?? '-'}% · Metadata ${s.metadataCompleteness ?? '-'}%`}
     >
       <span className="h-1.5 w-1.5 rounded-full bg-current" /> IQ {s.overall}%
       {s.usedFallback ? ' · fallback' : ''}
