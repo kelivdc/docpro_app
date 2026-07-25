@@ -167,6 +167,10 @@ async function main() {
     await db.execute(sql.raw(`ALTER TABLE person.documents ADD COLUMN IF NOT EXISTS ${col}`))
   }
 
+  // Ensure chat_sessions has document_ids (added after initial migration)
+  await db.execute(sql.raw(`ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS document_ids text[]`))
+  await db.execute(sql.raw(`ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS cost jsonb`))
+
   // Migrate the embedding column if its dimension changed (idempotent).
   // Incompatible dims can't be cast, so clear existing vectors first
   // (they must be re-embedded afterwards).
