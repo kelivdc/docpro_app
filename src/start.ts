@@ -7,6 +7,7 @@ export const startInstance = createStart(() => ({
         const url = new URL(ctx.request.url)
         return !url.pathname.startsWith('/api/auth')
       },
+      allowRequestsWithoutOriginCheck: true,
     }),
   ],
 }))
