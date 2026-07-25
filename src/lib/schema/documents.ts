@@ -31,8 +31,6 @@ export const documents = person.table('documents', {
   category: text('category'),
   note: text('note'),
   path: text('path'),
-  share: text('share').notNull().default('private'), // private|public|user|departemen
-  shareWith: text('share_with').array(),
   hidden: boolean('hidden').notNull().default(false),
   expired: boolean('expired').notNull().default(false),
   expiredAt: timestamp('expired_at', { withTimezone: true }),
@@ -85,14 +83,3 @@ export const categories = person.table('categories', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
-// Share links (AD-8/AD-11). token-based public/User/Departemen sharing.
-export const shareLinks = person.table('share_links', {
-  id: text('id').primaryKey(),
-  documentId: text('document_id').notNull(),
-  ownerId: text('owner_id').notNull(),
-  token: text('token').notNull().unique(),
-  mode: text('mode').notNull().default('public'), // public|user|departemen
-  shareWith: text('share_with').array(),
-  expiresAt: timestamp('expires_at', { withTimezone: true }),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-})

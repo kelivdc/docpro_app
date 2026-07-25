@@ -3,7 +3,7 @@ import { auth } from '../../lib/auth'
 import { getRequest } from '@tanstack/react-start/server'
 import { getTenantContext, getMonthlyTokenUsage } from '../tenant'
 import { db } from '../../lib/db'
-import { documents, shareLinks } from '../../lib/schema/documents'
+import { documents } from '../../lib/schema/documents'
 import { chatSessions } from '../../lib/schema/chat'
 import { eq, sql, desc, and, gte } from 'drizzle-orm'
 
@@ -41,7 +41,6 @@ export interface DashboardUsage {
   tokenPct: number
   documentCount: number
   chatCount: number
-  shareLinkCount: number
   recentDocuments: RecentDoc[]
   chatTrend: ChatTrendDay[]
 }
@@ -75,13 +74,6 @@ export const getDashboardUsage = createServerFn({ method: 'GET' }).handler(async
     .from(chatSessions)
     .where(and(eq(chatSessions.userId, userId), gte(chatSessions.createdAt, thirtyDaysAgo)))
   const chatCount = Number(chatCountRow[0]?.count ?? 0)
-
-  // Share link count
-  const shareCountRow = await db
-    .select({ count: sql<number>`COUNT(*)` })
-    .from(shareLinks)
-    .where(eq(shareLinks.ownerId, userId))
-  const shareLinkCount = Number(shareCountRow[0]?.count ?? 0)
 
   // Recent documents (last 5)
   const recentRows = await db
@@ -150,7 +142,6 @@ export const getDashboardUsage = createServerFn({ method: 'GET' }).handler(async
     tokenPct,
     documentCount,
     chatCount,
-    shareLinkCount,
     recentDocuments,
     chatTrend,
   }

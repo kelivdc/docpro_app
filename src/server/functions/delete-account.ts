@@ -16,7 +16,6 @@ export const deleteAccount = createServerFn({ method: 'POST' }).handler(async ()
   const ctx = await getTenantContext(userId)
 
   // Delete from person schema tables (covers Free/Personal users)
-  await pool.query(`DELETE FROM person.share_links WHERE owner_id = $1`, [userId])
   await pool.query(`DELETE FROM person.chunks WHERE owner_id = $1`, [userId])
   await pool.query(`DELETE FROM person.documents WHERE owner_id = $1`, [userId])
   await pool.query(`DELETE FROM person.categories WHERE owner_id = $1`, [userId])

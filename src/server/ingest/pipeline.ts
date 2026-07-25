@@ -19,7 +19,6 @@ export interface IngestInput {
   note?: string
   path?: string
   sourceType?: string
-  share?: string
   hidden?: boolean
   expired?: boolean
   expiredAt?: string | null
@@ -64,7 +63,6 @@ export async function ingestDocument(input: IngestInput): Promise<IngestResult> 
           note,
           path: input.path || null,
           sourceType: input.sourceType ?? 'document',
-          share: input.share ?? 'private',
           hidden: input.hidden ?? false,
           expired: input.expired ?? false,
           expiredAt: input.expiredAt ? new Date(input.expiredAt) : null,
@@ -86,7 +84,6 @@ export async function ingestDocument(input: IngestInput): Promise<IngestResult> 
         note,
         path: input.path || null,
         sourceType: input.sourceType ?? 'document',
-        share: input.share ?? 'private',
         hidden: input.hidden ?? false,
         expired: input.expired ?? false,
         expiredAt: input.expiredAt ? new Date(input.expiredAt) : null,

@@ -15,7 +15,6 @@ type DocRow = {
   name: string
   category: string | null
   path: string | null
-  share: string
   hidden: boolean
   expired: boolean
   expiredAt: string | Date | null

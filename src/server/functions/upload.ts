@@ -19,7 +19,6 @@ export interface UploadPayload {
   note?: string
   path?: string
   sourceType?: string
-  share?: string
   hidden?: boolean
   expired?: boolean
   expiredAt?: string | null
@@ -72,7 +71,6 @@ export const uploadDocument = createServerFn({ method: 'POST' })
       note: data.note,
       path: data.path,
       sourceType: data.sourceType,
-      share: data.share,
       hidden: data.hidden,
       expired: data.expired,
       expiredAt: data.expiredAt,
@@ -179,7 +177,6 @@ export const updateDocument = createServerFn({ method: 'POST' })
         note: doc.note ?? undefined,
         path: doc.path ?? undefined,
         sourceType: data.sourceType !== undefined ? data.sourceType : (doc.sourceType ?? 'document'),
-        share: doc.share ?? 'private',
         hidden: doc.hidden,
         expired: !!doc.expiredAt,
         expiredAt: doc.expiredAt ? doc.expiredAt.toISOString() : null,
@@ -255,7 +252,6 @@ export const reprocessDocument = createServerFn({ method: 'POST' })
       note: doc.note ?? undefined,
       path: doc.path ?? undefined,
       sourceType: doc.sourceType ?? 'document',
-      share: doc.share ?? 'private',
       hidden: doc.hidden,
       expired: !!doc.expiredAt,
       expiredAt: doc.expiredAt ? doc.expiredAt.toISOString() : null,

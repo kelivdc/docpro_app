@@ -71,11 +71,6 @@ const NAV_ITEMS: { to: string; label: string; end?: boolean; icon: React.ReactNo
     icon: <svg className="h-4 w-4 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>,
   },
   {
-    to: '/dashboard/share',
-    label: 'Share Links',
-    icon: <svg className="h-4 w-4 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8.684 10.742l5.292-3.024M15.22 17.69l-5.29-3.02M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>,
-  },
-  {
     to: '/dashboard/categories',
     label: 'Categories',
     icon: <svg className="h-4 w-4 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5a1.99 1.99 0 0 1 2 2v1h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h1V5a2 2 0 0 1 2-2zM9 11h6M9 15h4" /></svg>,

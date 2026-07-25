@@ -47,7 +47,7 @@ const faqs = [
   },
   {
     q: 'Can I share my knowledge or chat with others?',
-    a: 'Yes. You can share knowledge or AI chat links securely with your team. Set link expiry dates and access limits for full control.',
+    a: 'Yes. You can collaborate with your team by sharing knowledge access within your workspace.',
   },
   {
     q: 'Do you offer on-premise deployment?',

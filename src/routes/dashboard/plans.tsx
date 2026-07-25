@@ -27,7 +27,7 @@ function PlansPage() {
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mx-auto max-w-5xl">
             <PlanCard name="Free" price="$0" note="Start free, upgrade anytime" footnote="No credit card required<br />Cancel anytime" features={['50 MB Storage', 'AI Capacity (≈ 50k tokens)', 'OCR 50 pages']} cta="Start Free" />
-            <PlanCard name="Pro" price="$9" note="For professionals" active={true} features={['1 GB Storage', 'AI Capacity (≈ 5M tokens)', 'AI Chat', 'OCR', 'AI Summary', 'AI Translation', 'Secure Share Links']} cta="Active" />
+            <PlanCard name="Pro" price="$9" note="For professionals" active={true} features={['1 GB Storage', 'AI Capacity (≈ 5M tokens)', 'AI Chat', 'OCR', 'AI Summary', 'AI Translation']} cta="Active" />
             <PlanCard name="Business" price="$49" note="For small teams" recommended={true} highlight={true}               features={['<strong class="text-orange-600">Everything in Pro, plus:</strong>', '20 GB Storage', 'AI Capacity (≈ 50M tokens)', 'AI Website Widget', 'Multiple AI Assistants', 'Team Workspace', 'API Access', 'Priority AI Processing']} cta="Choose Business" />
             <PlanCard name="Enterprise" price="Contact Sales" note="For large organizations" amber={true}               features={['<strong class="text-orange-600">Everything in Business, plus:</strong>', 'Private AI Deployment', 'On-Premise', 'SSO', 'White Label', 'Dedicated Success Manager', 'SLA 99.9%']} cta="Contact Sales" />
 

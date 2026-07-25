@@ -31,11 +31,6 @@ const ACCEPTED = [
 const ACCEPTED_EXT = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.tiff', '.tif', '.bmp']
 const MAX_SIZE = 150 * 1024 * 1024
 
-const SHARE_OPTIONS = [
-  { value: 'private', label: 'Private — only me' },
-  { value: 'public', label: 'Public — all users' },
-]
-
 const SOURCE_TYPES = [
   { value: 'document', label: 'Document', icon: '📄' },
   { value: 'website', label: 'Website', icon: '🌐' },
@@ -77,7 +72,6 @@ function FilesPage() {
   const [category, setCategory] = useState('')
   const [sourceType, setSourceType] = useState('document')
   const [note, setNote] = useState('')
-  const [share, setShare] = useState('private')
   const [hidden, setHidden] = useState(false)
   const [path, setPath] = useState('')
   const [expiredAt, setExpiredAt] = useState('')
@@ -116,7 +110,6 @@ function FilesPage() {
         setCategory(doc.category || '')
         setNote(doc.note || '')
         setPath(doc.path || '')
-        setShare(doc.share || 'private')
         setHidden(!!doc.hidden)
         if (doc.expiredAt) setExpiredAt(new Date(doc.expiredAt).toISOString().split('T')[0])
         const { content } = await getDocumentContent({ data: { id: edit } })
@@ -216,7 +209,6 @@ function FilesPage() {
       sourceType,
       note,
       path,
-      share,
       hidden,
       expired: expiredAt ? true : false,
       expiredAt: expiredAt || null,
@@ -341,7 +333,6 @@ function FilesPage() {
     setSourceType('document')
     setExpiredAt('')
     setHidden(false)
-    setShare('private')
     setAdvancedOpen(false)
     setErrors({})
     setStatus('idle')
@@ -677,27 +668,6 @@ function FilesPage() {
               {/* Right column */}
               <div className="space-y-6 lg:col-span-2">
                 <div className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-6 shadow-sm md:p-7">
-                  {/* Share */}
-                  <div>
-                    <label className="mb-3 block text-sm font-medium text-[var(--fg)]">Share</label>
-                    <div className="space-y-2.5">
-                      {SHARE_OPTIONS.map((o) => (
-                        <label key={o.value} className="flex cursor-pointer items-center gap-3 text-sm text-[var(--fg)]">
-                          <input
-                            type="radio"
-                            name="share"
-                            value={o.value}
-                            checked={share === o.value}
-                            onChange={() => setShare(o.value)}
-                            className="h-4 w-4"
-                            style={{ accentColor: 'var(--primary)' }}
-                          />
-                          {o.label}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
                   {/* Advanced Settings */}
                   <div className="mt-6 border-t border-[var(--border)] pt-5">
                     <button

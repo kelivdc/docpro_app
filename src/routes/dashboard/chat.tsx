@@ -61,6 +61,7 @@ function ChatPage() {
 
   // Document source selection
   const [documents, setDocuments] = useState<{ id: string; name: string }[]>([])
+  const [allSources, setAllSources] = useState(false)
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([])
   const [docPickerOpen, setDocPickerOpen] = useState(false)
 
@@ -87,6 +88,7 @@ function ChatPage() {
         cost: m.cost ?? undefined,
       })))
       setSelectedDocIds(session.documentIds ?? [])
+      setAllSources(!session.documentIds || session.documentIds.length === 0)
       setHistory(msgs.filter((m) => m.role === 'user').map((m) => m.content))
     } catch {
       // ignore
@@ -147,26 +149,26 @@ function ChatPage() {
     if (!currentSessionId || !loaded) return
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
-      saveMessages(currentSessionId, messages, selectedDocIds)
+      saveMessages(currentSessionId, messages, allSources ? undefined : selectedDocIds)
     }, 500)
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     }
-  }, [messages, currentSessionId, loaded, selectedDocIds])
+  }, [messages, currentSessionId, loaded, selectedDocIds, allSources])
 
   const switchSession = useCallback(async (sessionId: string) => {
     // Save current session first
     if (currentSessionId) {
-      await saveMessages(currentSessionId, messages, selectedDocIds)
+      await saveMessages(currentSessionId, messages, allSources ? undefined : selectedDocIds)
     }
     setCurrentSessionId(sessionId)
     await loadSessionMessages(sessionId)
-  }, [currentSessionId, messages, saveMessages, loadSessionMessages, selectedDocIds])
+  }, [currentSessionId, messages, saveMessages, loadSessionMessages, selectedDocIds, allSources])
 
   const newSession = useCallback(async () => {
     // Save current session first
     if (currentSessionId) {
-      await saveMessages(currentSessionId, messages, selectedDocIds)
+      await saveMessages(currentSessionId, messages, allSources ? undefined : selectedDocIds)
     }
     const session = await createSession({ data: {} })
     setSessions((prev) => [session, ...prev])
@@ -174,7 +176,7 @@ function ChatPage() {
     setMessages([])
     setHistory([])
     setSelectedDocIds([])
-  }, [currentSessionId, messages, saveMessages, selectedDocIds])
+  }, [currentSessionId, messages, saveMessages, selectedDocIds, allSources])
 
   const doDeleteSession = useCallback(async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -201,7 +203,7 @@ function ChatPage() {
         setCurrentSessionId(null)
         setMessages([])
         setHistory([])
-        setSelectedDocIds([])
+    setSelectedDocIds([])
       }
     }
   }, [pendingDeleteId, currentSessionId, sessions, loadSessionMessages, saveMessages, messages, selectedDocIds])
@@ -381,7 +383,8 @@ function ChatPage() {
       .filter((m) => !m.pending)
       .map((m) => ({ role: m.role, content: m.content }))
     try {
-      const res = await chatAsk({ data: { question: q, history, documentIds: selectedDocIds.length > 0 ? selectedDocIds : undefined } }) as ChatResponse
+      const docIds = allSources ? documents.map((d) => d.id) : (selectedDocIds.length > 0 ? selectedDocIds : [])
+      const res = await chatAsk({ data: { question: q, history, documentIds: docIds } }) as ChatResponse
       let finalCost = res.cost
       const finalRaw = res.raw
 
@@ -413,7 +416,7 @@ function ChatPage() {
           return n
         })
         const cont = await chatContinue({
-          data: { question: q, priorAnswer: fullAnswer, history, documentIds: selectedDocIds.length > 0 ? selectedDocIds : undefined },
+          data: { question: q, priorAnswer: fullAnswer, history, documentIds: docIds },
         }) as ChatResponse
         if (cont.limitHit) {
           fullAnswer += (fullAnswer.endsWith('\n') ? '' : '\n') + cont.answer
@@ -575,9 +578,11 @@ function ChatPage() {
               className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] px-3 py-1.5 text-xs font-medium text-[var(--fg)] hover:bg-[var(--muted)]"
             >
               <span className="text-xs">📚</span>
-              {selectedDocIds.length === 0
+              {allSources
                 ? 'All Knowledge sources'
-                : `${selectedDocIds.length} source${selectedDocIds.length > 1 ? 's' : ''} selected`}
+                : selectedDocIds.length === 0
+                  ? 'No sources selected'
+                  : `${selectedDocIds.length} source${selectedDocIds.length > 1 ? 's' : ''} selected`}
               <svg className={`h-3 w-3 text-[var(--mutfg)] transition-transform ${docPickerOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <path d="M6 9l6 6 6-6" />
               </svg>
@@ -586,10 +591,25 @@ function ChatPage() {
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setDocPickerOpen(false)} />
                 <div className="absolute left-0 top-full z-20 mt-1 w-72 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-2 shadow-xl">
-                  {documents.length === 0 && (
+                  <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-semibold text-[var(--fg)] hover:bg-[var(--muted)]">
+                    <input
+                      type="checkbox"
+                      checked={allSources}
+                      onChange={() => {
+                        setAllSources((v) => {
+                          if (!v) setSelectedDocIds([])
+                          return !v
+                        })
+                      }}
+                      className="h-3.5 w-3.5 rounded border-[var(--border)] text-blue-600"
+                    />
+                    All Sources
+                  </label>
+                  <div className="my-1 border-t border-[var(--border)]" />
+                  {!allSources && documents.length === 0 && (
                     <p className="px-2 py-3 text-xs text-[var(--mutfg)]">No documents uploaded yet.</p>
                   )}
-                  {documents.map((doc) => {
+                  {!allSources && documents.map((doc) => {
                     const checked = selectedDocIds.includes(doc.id)
                     return (
                       <label
@@ -610,12 +630,20 @@ function ChatPage() {
                       </label>
                     )
                   })}
-                  {documents.length > 0 && selectedDocIds.length > 0 && (
+                  {!allSources && selectedDocIds.length > 0 && (
                     <button
-                      onClick={() => setSelectedDocIds([])}
+                      onClick={() => { setSelectedDocIds([]); setAllSources(true) }}
                       className="mt-1 w-full rounded-lg px-2 py-1.5 text-xs text-[var(--mutfg)] hover:bg-[var(--muted)]"
                     >
                       Clear selection
+                    </button>
+                  )}
+                  {allSources && documents.length > 0 && (
+                    <button
+                      onClick={() => setAllSources(false)}
+                      className="mt-1 w-full rounded-lg px-2 py-1.5 text-xs text-[var(--mutfg)] hover:bg-[var(--muted)]"
+                    >
+                      Pick specific sources
                     </button>
                   )}
                 </div>

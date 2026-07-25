@@ -20,8 +20,6 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
-import { Route as ShareTokenRouteImport } from './routes/share.$token'
-import { Route as DashboardShareRouteImport } from './routes/dashboard/share'
 import { Route as DashboardProfileRouteImport } from './routes/dashboard/profile'
 import { Route as DashboardPlansRouteImport } from './routes/dashboard/plans'
 import { Route as DashboardFilesRouteImport } from './routes/dashboard/files'
@@ -86,16 +84,6 @@ const DashboardIndexRoute = DashboardIndexRouteImport.update({
   path: '/',
   getParentRoute: () => DashboardRoute,
 } as any)
-const ShareTokenRoute = ShareTokenRouteImport.update({
-  id: '/share/$token',
-  path: '/share/$token',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardShareRoute = DashboardShareRouteImport.update({
-  id: '/share',
-  path: '/share',
-  getParentRoute: () => DashboardRoute,
-} as any)
 const DashboardProfileRoute = DashboardProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -155,8 +143,6 @@ export interface FileRoutesByFullPath {
   '/dashboard/files': typeof DashboardFilesRoute
   '/dashboard/plans': typeof DashboardPlansRoute
   '/dashboard/profile': typeof DashboardProfileRoute
-  '/dashboard/share': typeof DashboardShareRoute
-  '/share/$token': typeof ShareTokenRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
@@ -177,8 +163,6 @@ export interface FileRoutesByTo {
   '/dashboard/files': typeof DashboardFilesRoute
   '/dashboard/plans': typeof DashboardPlansRoute
   '/dashboard/profile': typeof DashboardProfileRoute
-  '/dashboard/share': typeof DashboardShareRoute
-  '/share/$token': typeof ShareTokenRoute
   '/dashboard': typeof DashboardIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
@@ -201,8 +185,6 @@ export interface FileRoutesById {
   '/dashboard/files': typeof DashboardFilesRoute
   '/dashboard/plans': typeof DashboardPlansRoute
   '/dashboard/profile': typeof DashboardProfileRoute
-  '/dashboard/share': typeof DashboardShareRoute
-  '/share/$token': typeof ShareTokenRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
@@ -226,8 +208,6 @@ export interface FileRouteTypes {
     | '/dashboard/files'
     | '/dashboard/plans'
     | '/dashboard/profile'
-    | '/dashboard/share'
-    | '/share/$token'
     | '/dashboard/'
     | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
@@ -248,8 +228,6 @@ export interface FileRouteTypes {
     | '/dashboard/files'
     | '/dashboard/plans'
     | '/dashboard/profile'
-    | '/dashboard/share'
-    | '/share/$token'
     | '/dashboard'
     | '/api/auth/$'
   id:
@@ -271,8 +249,6 @@ export interface FileRouteTypes {
     | '/dashboard/files'
     | '/dashboard/plans'
     | '/dashboard/profile'
-    | '/dashboard/share'
-    | '/share/$token'
     | '/dashboard/'
     | '/api/auth/$'
   fileRoutesById: FileRoutesById
@@ -289,7 +265,6 @@ export interface RootRouteChildren {
   PricingRoute: typeof PricingRoute
   RegisterRoute: typeof RegisterRoute
   ApiTtsRoute: typeof ApiTtsRoute
-  ShareTokenRoute: typeof ShareTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -372,20 +347,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardIndexRouteImport
       parentRoute: typeof DashboardRoute
     }
-    '/share/$token': {
-      id: '/share/$token'
-      path: '/share/$token'
-      fullPath: '/share/$token'
-      preLoaderRoute: typeof ShareTokenRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dashboard/share': {
-      id: '/dashboard/share'
-      path: '/share'
-      fullPath: '/dashboard/share'
-      preLoaderRoute: typeof DashboardShareRouteImport
-      parentRoute: typeof DashboardRoute
-    }
     '/dashboard/profile': {
       id: '/dashboard/profile'
       path: '/profile'
@@ -452,7 +413,6 @@ interface DashboardRouteChildren {
   DashboardFilesRoute: typeof DashboardFilesRoute
   DashboardPlansRoute: typeof DashboardPlansRoute
   DashboardProfileRoute: typeof DashboardProfileRoute
-  DashboardShareRoute: typeof DashboardShareRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
 }
 
@@ -463,7 +423,6 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardFilesRoute: DashboardFilesRoute,
   DashboardPlansRoute: DashboardPlansRoute,
   DashboardProfileRoute: DashboardProfileRoute,
-  DashboardShareRoute: DashboardShareRoute,
   DashboardIndexRoute: DashboardIndexRoute,
 }
 
@@ -483,7 +442,6 @@ const rootRouteChildren: RootRouteChildren = {
   PricingRoute: PricingRoute,
   RegisterRoute: RegisterRoute,
   ApiTtsRoute: ApiTtsRoute,
-  ShareTokenRoute: ShareTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport

@@ -70,8 +70,6 @@ async function main() {
       category text,
       note text,
       path text,
-      share text NOT NULL DEFAULT 'private',
-      share_with text[],
       hidden boolean NOT NULL DEFAULT false,
       expired boolean NOT NULL DEFAULT false,
       expired_at timestamptz,
@@ -122,19 +120,6 @@ async function main() {
       description text,
       icon text NOT NULL DEFAULT '📁',
       color text NOT NULL DEFAULT '#2563EB',
-      created_at timestamp NOT NULL DEFAULT now()
-    )
-  `)
-
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS person.share_links (
-      id text PRIMARY KEY,
-      document_id text NOT NULL,
-      owner_id text NOT NULL,
-      token text NOT NULL UNIQUE,
-      mode text NOT NULL DEFAULT 'public',
-      share_with text[],
-      expires_at timestamptz,
       created_at timestamp NOT NULL DEFAULT now()
     )
   `)

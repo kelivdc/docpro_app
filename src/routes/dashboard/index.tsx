@@ -178,7 +178,6 @@ function DashboardHome() {
   const tokenPct = usage?.tokenPct ?? 0
   const documentCount = usage?.documentCount ?? 0
   const chatCount = usage?.chatCount ?? 0
-  const shareLinkCount = usage?.shareLinkCount ?? 0
   const recentDocuments = usage?.recentDocuments ?? []
   const chatTrend = usage?.chatTrend ?? []
   const tier = usage?.tier ?? 'free'
@@ -232,7 +231,7 @@ function DashboardHome() {
         </section>
 
         {/* KPI Grid */}
-        <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <section className="grid grid-cols-2 gap-4 lg:grid-cols-3">
           <KpiCard
             icon={<svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>}
             accent="bg-blue-500/10 text-blue-600"
@@ -253,13 +252,6 @@ function DashboardHome() {
             value={`${storageUsed} MB`}
             label="Storage Used"
             badge={<span className="rounded-full bg-[var(--muted)] px-2.5 py-1 text-[10px] font-extrabold text-[var(--mutfg)]">quota {storageTotal} MB</span>}
-          />
-          <KpiCard
-            icon={<svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8.684 10.742l5.292-3.024M15.22 17.69l-5.29-3.02M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
-            accent="bg-amber-500/10 text-amber-600"
-            value={`${shareLinkCount}`}
-            label="Share Links"
-            badge={shareLinkCount > 0 ? <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-extrabold text-amber-600">Active</span> : <span className="rounded-full bg-[var(--muted)] px-2.5 py-1 text-[10px] font-extrabold text-[var(--mutfg)]">None</span>}
           />
         </section>
 
