@@ -9,7 +9,7 @@
     "dev": "vite dev --port 3000",
     "generate-routes": "tsr generate",
     "build": "vite build",
-    "start": "node dist/server/index.mjs",
+    "start": "srvx serve --entry ./dist/server/server.js --port 3456 --static ./dist/client --prod",
     "preview": "vite preview",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
@@ -28,7 +28,7 @@
     "better-auth": "^1.6.23",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
-    "edge-tts": "^1.0.1",
+    "edge-tts": "1.0.1",
     "lucide-react": "^0.545.0",
     "mammoth": "^1.12.0",
     "minio": "^8.0.7",
@@ -41,7 +41,8 @@
     "remark-gfm": "^4.0.1",
     "tailwindcss": "^4.1.18",
     "tesseract.js": "^5.1.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "srvx": "^0.11.22"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.16",
