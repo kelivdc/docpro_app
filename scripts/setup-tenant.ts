@@ -40,6 +40,27 @@ async function main() {
       updated_at timestamp NOT NULL DEFAULT now()
     )
   `)
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS chat_sessions (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id text NOT NULL,
+      title text NOT NULL DEFAULT 'New Chat',
+      document_ids text[],
+      created_at timestamp NOT NULL DEFAULT now(),
+      updated_at timestamp NOT NULL DEFAULT now()
+    )
+  `)
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      session_id uuid NOT NULL REFERENCES chat_sessions(id) ON DELETE cascade,
+      role text NOT NULL CHECK (role IN ('user', 'assistant')),
+      content text NOT NULL,
+      sources jsonb,
+      cost jsonb,
+      created_at timestamp NOT NULL DEFAULT now()
+    )
+  `)
 
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS person.documents (
