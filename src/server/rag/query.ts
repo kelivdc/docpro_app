@@ -15,6 +15,11 @@ async function retrieveReranked(
 ): Promise<{ hits: any[]; matched: boolean }> {
   const store = await getVectorStore(userId)
 
+  // Explicitly empty array means user chose no sources — return nothing.
+  if (opts?.documentIds && opts.documentIds.length === 0) {
+    return { hits: [], matched: false }
+  }
+
   // Phase 1: scout a wider net without expansion.
   const scouted = await store.query(userId, vector, {
     limit: chatConfig.rerankTopK,
