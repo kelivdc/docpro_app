@@ -9,7 +9,7 @@
     "dev": "vite dev --port 3000",
     "generate-routes": "tsr generate",
     "build": "vite build",
-    "start": "srvx serve --entry ./dist/server/server.js --port 3456 --static ./dist/client --prod",
+    "start": "srvx serve --entry ./dist/server/server.js --port 4175 --static ./dist/client --prod",
     "preview": "vite preview",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
