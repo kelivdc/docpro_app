@@ -12,6 +12,8 @@ export interface TenantContext {
   bucket: string
   llmMode: LlmMode
   orgId?: string
+  deletedAt?: Date
+  purgedAt?: Date
   limits: { storageBytes: number; tokenPerMonth: number }
 }
 
@@ -23,6 +25,9 @@ export async function getTenantContext(userId: string): Promise<TenantContext> {
   })
 
   if (existing) {
+    if (existing.deletedAt) {
+      throw new Error('Account deleted')
+    }
     const tier = existing.tier as Tier
     return {
       userId,
@@ -32,6 +37,8 @@ export async function getTenantContext(userId: string): Promise<TenantContext> {
       bucket: existing.bucket,
       llmMode: existing.llmMode as LlmMode,
       orgId: existing.orgId ?? undefined,
+      deletedAt: existing.deletedAt ?? undefined,
+      purgedAt: existing.purgedAt ?? undefined,
       limits: { storageBytes: TIER_LIMITS[tier]?.storageBytes ?? TIER_LIMITS.free.storageBytes, tokenPerMonth: TIER_LIMITS[tier]?.tokenPerMonth ?? TIER_LIMITS.free.tokenPerMonth },
     }
   }

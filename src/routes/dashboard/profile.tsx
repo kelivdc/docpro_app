@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { DashboardHeader } from './index'
 import { Route as DashboardRoute } from '../dashboard'
 import { signOut } from '../../lib/auth-client'
-import { deleteAccount } from '../../server/functions/delete-account'
+import { deleteAccount, cancelDeleteAccount } from '../../server/functions/delete-account'
 
 export const Route = createFileRoute('/dashboard/profile')({
   component: ProfilePage,
@@ -23,6 +23,7 @@ function ProfilePage() {
   const tokenSisa = 100 - tokenPct
 
   const tier = (usage?.tier ?? 'free').charAt(0).toUpperCase() + (usage?.tier ?? 'free').slice(1)
+  const deleted = usage?.deletionScheduled ?? false
 
   const [confirmText, setConfirmText] = useState('')
   const [deleting, setDeleting] = useState(false)
@@ -40,6 +41,15 @@ function ProfilePage() {
       setDeleting(false)
       setShowConfirm(false)
       setConfirmText('')
+    }
+  }
+
+  const handleCancelDelete = async () => {
+    try {
+      await cancelDeleteAccount()
+      navigate({ to: '/dashboard/profile', replace: true })
+    } catch {
+      // ignore
     }
   }
 
@@ -138,18 +148,35 @@ function ProfilePage() {
         </div>
 
         {/* Danger Zone */}
-        <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-6">
-          <h2 className="mb-2 text-base font-bold text-red-600">Danger Zone</h2>
-          <p className="mb-4 text-sm text-[var(--mutfg)]">
-            Once you delete your account, there is no going back. All your documents, chats, and data will be permanently removed.
-          </p>
-          <button
-            onClick={() => setShowConfirm(true)}
-            className="rounded-xl bg-red-600 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700"
-          >
-            Remove Account
-          </button>
-        </div>
+        {deleted ? (
+          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-6">
+            <h2 className="mb-2 text-base font-bold text-amber-600">Account Deletion Scheduled</h2>
+            <p className="mb-4 text-sm text-[var(--mutfg)]">
+              Your account has been scheduled for deletion. All data will be permanently removed after 7 days.
+              You can cancel this within the grace period.
+            </p>
+            <button
+              onClick={handleCancelDelete}
+              className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-700"
+            >
+              Cancel Deletion
+            </button>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-6">
+            <h2 className="mb-2 text-base font-bold text-red-600">Danger Zone</h2>
+            <p className="mb-4 text-sm text-[var(--mutfg)]">
+              Removing your account starts a 7-day grace period before all data is permanently erased.
+              You can cancel within this period by returning to this page.
+            </p>
+            <button
+              onClick={() => setShowConfirm(true)}
+              className="rounded-xl bg-red-600 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700"
+            >
+              Remove Account
+            </button>
+          </div>
+        )}
       </main>
 
       {/* Confirmation modal */}
@@ -158,7 +185,7 @@ function ProfilePage() {
           <div className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-6 shadow-xl">
             <h3 className="mb-2 text-lg font-extrabold text-red-600">Remove Account</h3>
             <p className="mb-4 text-sm text-[var(--mutfg)]">
-              This action is permanent. Type <strong>DELETE</strong> to confirm.
+              This schedules your account for deletion. You have <strong>7 days</strong> to cancel before all data is permanently removed. Type <strong>DELETE</strong> to confirm.
             </p>
             <input
               autoFocus

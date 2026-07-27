@@ -8,6 +8,7 @@ import { getSessionFromServer } from '../lib/get-session'
 import { DashboardSidebar, initials } from '../components/DashboardSidebar'
 import type { DashboardUsage } from '../server/functions/usage'
 import { getDashboardUsage } from '../server/functions/usage'
+import { checkAccountBlocked } from '../server/functions/delete-account'
 
 export { initials }
 export { SidebarItem } from '../components/DashboardSidebar'
@@ -18,6 +19,12 @@ export const Route = createFileRoute('/dashboard')({
     if (!session) {
       throw redirect({ to: '/login' })
     }
+
+    const { blocked } = await checkAccountBlocked()
+    if (blocked) {
+      throw redirect({ to: '/login', search: { blocked } })
+    }
+
     return { session }
   },
   loader: async (): Promise<DashboardUsage> => {
@@ -39,7 +46,6 @@ function DashboardLayout() {
         onToggle={() => setSidebarCollapsed((v) => !v)}
       />
 
-      {/* ============ CONTENT (nested routes render here) ============ */}
       <div className="flex min-w-0 flex-1 flex-col">
         <Outlet />
       </div>

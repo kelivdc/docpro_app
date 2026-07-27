@@ -4,6 +4,9 @@ import Logo from '../components/Logo'
 import { signIn } from '../lib/auth-client'
 
 export const Route = createFileRoute('/login')({
+  validateSearch: (s: Record<string, unknown>) => ({
+    blocked: s.blocked === 'soft' ? 'soft' as const : s.blocked === 'hard' ? 'hard' as const : undefined,
+  }),
   component: Login,
   head: () => ({
     meta: [{ title: 'DocPro — Login' }],
@@ -14,10 +17,17 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function Login() {
   const navigate = useNavigate()
+  const { blocked } = Route.useSearch()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
+
+  const blockedMsg = blocked === 'hard'
+    ? 'Your account and all associated data have been permanently deleted.'
+    : blocked === 'soft'
+      ? 'Your account is scheduled for deletion. Access is blocked during the grace period.'
+      : null
 
   function validate() {
     const e: Record<string, string> = {}
@@ -130,6 +140,11 @@ function Login() {
             </div>
 
             <form className="space-y-4" onSubmit={handleSubmit} noValidate>
+              {blockedMsg && (
+                <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-600">
+                  {blockedMsg}
+                </div>
+              )}
               <button
                 type="button"
                 className="demo-button demo-button-secondary w-full justify-center gap-2.5"

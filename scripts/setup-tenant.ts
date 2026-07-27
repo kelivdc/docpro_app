@@ -156,6 +156,10 @@ async function main() {
   await db.execute(sql.raw(`ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS document_ids text[]`))
   await db.execute(sql.raw(`ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS cost jsonb`))
 
+  // Soft-delete support
+  await db.execute(sql.raw(`ALTER TABLE tenant_map ADD COLUMN IF NOT EXISTS deleted_at timestamptz`))
+  await db.execute(sql.raw(`ALTER TABLE tenant_map ADD COLUMN IF NOT EXISTS purged_at timestamptz`))
+
   // Migrate the embedding column if its dimension changed (idempotent).
   // Incompatible dims can't be cast, so clear existing vectors first
   // (they must be re-embedded afterwards).

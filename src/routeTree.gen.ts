@@ -9,7 +9,9 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as RegisterRouteImport } from './routes/register'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as HowItWorksRouteImport } from './routes/how-it-works'
@@ -29,9 +31,19 @@ import { Route as DashboardCategoriesRouteImport } from './routes/dashboard/cate
 import { Route as ApiTtsRouteImport } from './routes/api/tts'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PricingRoute = PricingRouteImport.update({
@@ -135,7 +147,9 @@ export interface FileRoutesByFullPath {
   '/how-it-works': typeof HowItWorksRoute
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
+  '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
+  '/terms': typeof TermsRoute
   '/api/tts': typeof ApiTtsRoute
   '/dashboard/categories': typeof DashboardCategoriesRoute
   '/dashboard/chat': typeof DashboardChatRoute
@@ -155,7 +169,9 @@ export interface FileRoutesByTo {
   '/how-it-works': typeof HowItWorksRoute
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
+  '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
+  '/terms': typeof TermsRoute
   '/api/tts': typeof ApiTtsRoute
   '/dashboard/categories': typeof DashboardCategoriesRoute
   '/dashboard/chat': typeof DashboardChatRoute
@@ -177,7 +193,9 @@ export interface FileRoutesById {
   '/how-it-works': typeof HowItWorksRoute
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
+  '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
+  '/terms': typeof TermsRoute
   '/api/tts': typeof ApiTtsRoute
   '/dashboard/categories': typeof DashboardCategoriesRoute
   '/dashboard/chat': typeof DashboardChatRoute
@@ -200,7 +218,9 @@ export interface FileRouteTypes {
     | '/how-it-works'
     | '/login'
     | '/pricing'
+    | '/privacy'
     | '/register'
+    | '/terms'
     | '/api/tts'
     | '/dashboard/categories'
     | '/dashboard/chat'
@@ -220,7 +240,9 @@ export interface FileRouteTypes {
     | '/how-it-works'
     | '/login'
     | '/pricing'
+    | '/privacy'
     | '/register'
+    | '/terms'
     | '/api/tts'
     | '/dashboard/categories'
     | '/dashboard/chat'
@@ -241,7 +263,9 @@ export interface FileRouteTypes {
     | '/how-it-works'
     | '/login'
     | '/pricing'
+    | '/privacy'
     | '/register'
+    | '/terms'
     | '/api/tts'
     | '/dashboard/categories'
     | '/dashboard/chat'
@@ -263,18 +287,34 @@ export interface RootRouteChildren {
   HowItWorksRoute: typeof HowItWorksRoute
   LoginRoute: typeof LoginRoute
   PricingRoute: typeof PricingRoute
+  PrivacyRoute: typeof PrivacyRoute
   RegisterRoute: typeof RegisterRoute
+  TermsRoute: typeof TermsRoute
   ApiTtsRoute: typeof ApiTtsRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/register': {
       id: '/register'
       path: '/register'
       fullPath: '/register'
       preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pricing': {
@@ -440,7 +480,9 @@ const rootRouteChildren: RootRouteChildren = {
   HowItWorksRoute: HowItWorksRoute,
   LoginRoute: LoginRoute,
   PricingRoute: PricingRoute,
+  PrivacyRoute: PrivacyRoute,
   RegisterRoute: RegisterRoute,
+  TermsRoute: TermsRoute,
   ApiTtsRoute: ApiTtsRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }

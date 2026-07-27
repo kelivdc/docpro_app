@@ -97,7 +97,7 @@ export function DashboardSidebar({
     >
       <div className="flex min-h-0 flex-1 flex-col gap-4 p-3">
         <div className={`flex items-center ${collapsed ? 'justify-center' : 'justify-between'}`}>
-          {!collapsed && <Logo height={30} linkTo="/" />}
+          <Logo height={collapsed ? 24 : 30} showText={!collapsed} linkTo="/" />
           <button
             onClick={onToggle}
             className="rounded-lg p-1.5 text-[var(--mutfg)] hover:bg-[var(--muted)] hover:text-[var(--fg)]"

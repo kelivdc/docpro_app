@@ -187,7 +187,7 @@ export async function answerQuestion(
   if (!matched) {
     await incrementChatUsage(userId)
     return {
-      answer: `Terima kasih atas pertanyaan Anda. Saya telah menelusuri seluruh dokumen yang tersedia, namun tidak menemukan informasi yang berkaitan dengan "${question}". Jika berkenan, Anda dapat merumuskan kembali pertanyaan atau memeriksa kembali dokumen yang telah diunggah.`,
+      answer: `Thank you for your question. I searched all available documents but could not find information related to "${question}". Please try rephrasing or check your uploaded documents.`,
       sources: [],
     }
   }
@@ -200,16 +200,17 @@ export async function answerQuestion(
   const system: ChatMessage = {
     role: 'system',
     content:
-      'Anda adalah asisten RAG untuk DocPro. Jawab HANYA berdasarkan konteks dokumen yang diberikan. ' +
-      'Jika jawaban tidak ada di konteks, katakan tidak tahu. Jawab dalam Bahasa Indonesia yang jelas, terstruktur, dan ringkas. ' +
-      'Gunakan format Markdown untuk keterbacaan: heading (## / ###) untuk topik, daftar bernomor/bullet untuk langkah atau poin, ' +
-      'tabel untuk data berdampingan, dan **tebal** untuk istilah kunci. Jangan sertakan nama file atau path di dalam jawaban; ' +
-      'sumber akan ditampilkan terpisah. Metadata internal (id dokumen, indeks chunk, heading path) bersifat rahasia dan ' +
-      'hanya untuk referensi sistem — JANGAN tampilkan metadata tersebut atau potongan chunk mentah apa pun di jawaban.',
+      'IMPORTANT: Answer in the EXACT SAME LANGUAGE as the user\'s question. If the user wrote in English, answer in English. If in Indonesian, answer in Indonesian. Never switch languages.\n\n' +
+      'You are a RAG assistant for DocPro. Answer ONLY based on the provided document context. ' +
+      'If the answer is not in the context, say you don\'t know. ' +
+      'Use Markdown formatting for readability: headings (## / ###) for topics, numbered/bullet lists for steps or points, ' +
+      'tables for side-by-side data, and **bold** for key terms. Do not include file names or paths in the answer; ' +
+      'sources are shown separately. Internal metadata (document id, chunk index, heading path) is confidential and ' +
+      'for system reference only — DO NOT show any metadata or raw chunk snippets in the answer.',
   }
   const user: ChatMessage = {
     role: 'user',
-    content: `Pertanyaan: ${question}\n\nKonteks dokumen:\n${context}`,
+    content: `[Answer in the same language as this question]\n\nQuestion: ${question}\n\nDocument context:\n${context}`,
   }
 
   const provider = getLlmProvider(ctx.llmMode)
@@ -276,18 +277,20 @@ export async function continueAnswer(
   const system: ChatMessage = {
     role: 'system',
     content:
-      'Anda adalah asisten RAG untuk DocPro yang MELANJUTKAN jawaban yang terpotong. ' +
-      'Lanjutkan TEPAT dari akhir teks sebelumnya. JANGAN mengulang bagian yang sudah ditulis. ' +
-      'Gunakan format Markdown yang konsisten dengan bagian sebelumnya (heading, daftar, tabel, **tebal**). ' +
-      'Jawab HANYA berdasarkan konteks dokumen. Metadata internal bersifat rahasia — JANGAN tampilkan.',
+      'IMPORTANT: Continue in the EXACT SAME LANGUAGE as the user\'s question. Never switch languages.\n\n' +
+      'You are a RAG assistant for DocPro CONTINUING a truncated answer. ' +
+      'Continue EXACTLY from where the previous text stopped. DO NOT repeat already written content. ' +
+      'Use consistent Markdown formatting with the previous section (headings, lists, tables, **bold**). ' +
+      'Answer ONLY based on document context. Internal metadata is confidential — DO NOT show it.',
   }
   const user: ChatMessage = {
     role: 'user',
     content:
-      `Pertanyaan: ${effectiveQuestion}\n\n` +
-      `Konteks dokumen:\n${context}\n\n` +
-      `Jawaban SEBELUMNYA (lanjutkan dari akhir ini, jangan ulangi):\n${priorAnswer}\n\n` +
-      `LANJUTKAN:`,
+      `[Answer in the same language as this question]\n\n` +
+      `Question: ${effectiveQuestion}\n\n` +
+      `Document context:\n${context}\n\n` +
+      `PREVIOUS answer (continue from the end, do not repeat):\n${priorAnswer}\n\n` +
+      `CONTINUE:`,
   }
 
   const provider = getLlmProvider(ctx.llmMode)
@@ -348,7 +351,7 @@ export async function* streamAnswer(
   if (!matched) {
     await incrementChatUsage(userId)
     const msg =
-      'Maaf, saya tidak menemukan informasi terkait di dokumen Anda. Pastikan dokumen sudah diunggah, berstatus "Siap", dan bukan file hasil pindaan (scan) tanpa teks.'
+      'Sorry, I could not find related information in your documents. Make sure your documents have been uploaded, are in "Ready" status, and are not scanned images without text.'
     yield msg
     return { answer: msg, sources: [] }
   }
@@ -360,16 +363,17 @@ export async function* streamAnswer(
   const system: ChatMessage = {
     role: 'system',
     content:
-      'Anda adalah asisten RAG untuk DocPro. Jawab HANYA berdasarkan konteks dokumen yang diberikan. ' +
-      'Jika jawaban tidak ada di konteks, katakan tidak tahu. Jawab dalam Bahasa Indonesia yang jelas, terstruktur, dan ringkas. ' +
-      'Gunakan format Markdown untuk keterbacaan: heading (## / ###) untuk topik, daftar bernomor/bullet untuk langkah atau poin, ' +
-      'tabel untuk data berdampingan, dan **tebal** untuk istilah kunci. Jangan sertakan nama file atau path di dalam jawaban; ' +
-      'sumber akan ditampilkan terpisah. Metadata internal (id dokumen, indeks chunk, heading path) bersifat rahasia dan ' +
-      'hanya untuk referensi sistem — JANGAN tampilkan metadata tersebut atau potongan chunk mentah apa pun di jawaban.',
+      'IMPORTANT: Answer in the EXACT SAME LANGUAGE as the user\'s question. If the user wrote in English, answer in English. If in Indonesian, answer in Indonesian. Never switch languages.\n\n' +
+      'You are a RAG assistant for DocPro. Answer ONLY based on the provided document context. ' +
+      'If the answer is not in the context, say you don\'t know. ' +
+      'Use Markdown formatting for readability: headings (## / ###) for topics, numbered/bullet lists for steps or points, ' +
+      'tables for side-by-side data, and **bold** for key terms. Do not include file names or paths in the answer; ' +
+      'sources are shown separately. Internal metadata (document id, chunk index, heading path) is confidential and ' +
+      'for system reference only — DO NOT show any metadata or raw chunk snippets in the answer.',
   }
   const user: ChatMessage = {
     role: 'user',
-    content: `Pertanyaan: ${question}\n\nKonteks dokumen:\n${context}`,
+    content: `[Answer in the same language as this question]\n\nQuestion: ${question}\n\nDocument context:\n${context}`,
   }
 
   const provider = getLlmProvider(ctx.llmMode)

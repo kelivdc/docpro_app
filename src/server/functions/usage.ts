@@ -43,6 +43,7 @@ export interface DashboardUsage {
   chatCount: number
   recentDocuments: RecentDoc[]
   chatTrend: ChatTrendDay[]
+  deletionScheduled: boolean
 }
 
 export const getDashboardUsage = createServerFn({ method: 'GET' }).handler(async (): Promise<DashboardUsage> => {
@@ -144,5 +145,6 @@ export const getDashboardUsage = createServerFn({ method: 'GET' }).handler(async
     chatCount,
     recentDocuments,
     chatTrend,
+    deletionScheduled: !!ctx.deletedAt,
   }
 })

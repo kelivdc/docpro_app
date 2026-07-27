@@ -24,6 +24,8 @@ export const tenantMap = pgTable('tenant_map', {
   bucket: text('bucket').notNull().default('docpro-person'),
   llmMode: text('llm_mode').notNull().default('cloud'),
   orgId: text('org_id'),
+  deletedAt: timestamp('deleted_at'),
+  purgedAt: timestamp('purged_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
