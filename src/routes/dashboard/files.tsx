@@ -38,11 +38,6 @@ const SOURCE_TYPES = [
   { value: 'api', label: 'API', icon: '🔌' },
 ]
 
-const PROGRESS_STEPS = [
-  { phase: 'Uploading…', pct: 35, substeps: [] as string[] },
-  { phase: 'Processing Knowledge…', pct: 70, substeps: ['Extracting text', 'Chunking', 'Generating embeddings'] },
-]
-
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
@@ -75,7 +70,6 @@ function FilesPage() {
   const [hidden, setHidden] = useState(false)
   const [path, setPath] = useState('')
   const [expiredAt, setExpiredAt] = useState('')
-  const [advancedOpen, setAdvancedOpen] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [status, setStatus] = useState<'idle' | 'uploading' | 'processing' | 'done' | 'error'>('idle')
   const [submitError, setSubmitError] = useState('')
@@ -219,7 +213,7 @@ function FilesPage() {
       docName = file.name
     } else if (sourceType === 'website') {
       docName = docName || new URL(url).hostname
-      payload.content = `URL: ${url}\n\nPage content will be fetched during processing.`
+      payload.content = url
     } else if (sourceType === 'manual') {
       docName = docName || 'Manual Entry'
       payload.content = manualContent
@@ -333,7 +327,6 @@ function FilesPage() {
     setSourceType('document')
     setExpiredAt('')
     setHidden(false)
-    setAdvancedOpen(false)
     setErrors({})
     setStatus('idle')
     setDocumentId(null)
@@ -668,60 +661,40 @@ function FilesPage() {
               {/* Right column */}
               <div className="space-y-6 lg:col-span-2">
                 <div className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-6 shadow-sm md:p-7">
-                  {/* Advanced Settings */}
-                  <div className="mt-6 border-t border-[var(--border)] pt-5">
-                    <button
-                      type="button"
-                      onClick={() => setAdvancedOpen((v) => !v)}
-                      className="flex w-full items-center justify-between text-sm font-medium text-[var(--fg)]"
-                    >
-                      <span>Advanced Settings</span>
-                      <svg
-                        className={`h-4 w-4 text-[var(--mutfg)] transition-transform ${advancedOpen ? 'rotate-180' : ''}`}
-                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                  <div className="text-xs font-bold uppercase tracking-wider text-[var(--mutfg)] mb-3">Advanced Settings</div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-[var(--fg)]">Expiration Date</label>
+                      <input
+                        type="date"
+                        value={expiredAt}
+                        onChange={(e) => setExpiredAt(e.target.value)}
+                        className="demo-input w-full"
+                      />
+                      <p className="mt-1 text-xs text-[var(--mutfg)]">Knowledge hidden after this date.</p>
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-[var(--fg)]">Manual Path</label>
+                      <input
+                        value={path}
+                        onChange={(e) => setPath(e.target.value)}
+                        placeholder="/archive/finance/2026"
+                        className="demo-input w-full"
+                      />
+                      <p className="mt-1 text-xs text-[var(--mutfg)]">Source reference location.</p>
+                    </div>
+                    <label className="flex cursor-pointer items-center justify-between gap-3 text-xs font-medium text-[var(--fg)]">
+                      <span>Hidden from search</span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={hidden}
+                        onClick={() => setHidden((v) => !v)}
+                        className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${hidden ? 'bg-blue-600' : 'bg-[var(--muted)]'}`}
                       >
-                        <path d="M6 9l6 6 6-6" />
-                      </svg>
-                    </button>
-
-                    {advancedOpen && (
-                      <div className="mt-4 space-y-4">
-                        <div>
-                          <label className="mb-1.5 block text-xs font-medium text-[var(--fg)]">Expiration Date</label>
-                          <input
-                            type="date"
-                            value={expiredAt}
-                            onChange={(e) => setExpiredAt(e.target.value)}
-                            className="demo-input w-full"
-                          />
-                          <p className="mt-1 text-xs text-[var(--mutfg)]">Knowledge hidden after this date.</p>
-                        </div>
-
-                        <div>
-                          <label className="mb-1.5 block text-xs font-medium text-[var(--fg)]">Manual Path</label>
-                          <input
-                            value={path}
-                            onChange={(e) => setPath(e.target.value)}
-                            placeholder="/archive/finance/2026"
-                            className="demo-input w-full"
-                          />
-                          <p className="mt-1 text-xs text-[var(--mutfg)]">Source reference location.</p>
-                        </div>
-
-                        <label className="flex cursor-pointer items-center justify-between gap-3 text-xs font-medium text-[var(--fg)]">
-                          <span>Hidden from search</span>
-                          <button
-                            type="button"
-                            role="switch"
-                            aria-checked={hidden}
-                            onClick={() => setHidden((v) => !v)}
-                            className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${hidden ? 'bg-blue-600' : 'bg-[var(--muted)]'}`}
-                          >
-                            <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${hidden ? 'left-[18px]' : 'left-0.5'}`} />
-                          </button>
-                        </label>
-                      </div>
-                    )}
+                        <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${hidden ? 'left-[18px]' : 'left-0.5'}`} />
+                      </button>
+                    </label>
                   </div>
                 </div>
 
@@ -775,7 +748,7 @@ function FilesPage() {
               )}
               <div>
                 <div className="text-sm font-bold text-[var(--fg)]">{file?.name || name || (sourceType === 'website' ? url : sourceType === 'api' ? apiEndpoint : 'Knowledge')}</div>
-                <div className="text-xs text-[var(--mutfg)]">{status === 'uploading' ? 'Uploading…' : 'Processing Knowledge…'}</div>
+                <div className="text-xs text-[var(--mutfg)]">{status === 'uploading' ? (sourceType === 'website' ? 'Fetching website…' : 'Uploading…') : 'Processing Knowledge…'}</div>
               </div>
             </div>
 

@@ -2,6 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { auth } from '../../lib/auth'
 import { getRequest } from '@tanstack/react-start/server'
 import { ingestDocument } from '../ingest/pipeline'
+import { fetchWebsite } from '../ingest/fetch-website'
 import { db } from '../../lib/db'
 import { documents } from '../../lib/schema/documents'
 import { eq, desc } from 'drizzle-orm'
@@ -46,7 +47,16 @@ export const uploadDocument = createServerFn({ method: 'POST' })
     const ownerId = await currentUserId()
     let file: { name: string; mime: string; size: number; buffer: Buffer }
 
-    if (data.content) {
+    if (data.sourceType === 'website' && data.content) {
+      const page = await fetchWebsite(data.content)
+      const buf = Buffer.from(page.text, 'utf-8')
+      file = {
+        name: page.title + '.txt',
+        mime: 'text/plain',
+        size: buf.length,
+        buffer: buf,
+      }
+    } else if (data.content) {
       const buf = Buffer.from(data.content, 'utf-8')
       const ext = data.sourceType === 'manual' ? '.txt' : data.sourceType === 'website' ? '.html' : '.txt'
       file = {
