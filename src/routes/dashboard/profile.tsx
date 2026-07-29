@@ -61,7 +61,8 @@ function ProfilePage() {
   return (
     <>
       <DashboardHeader />
-      <main className="mx-auto w-full max-w-2xl flex-1 rounded-2xl bg-[var(--bg-soft)] px-6 py-8">
+      <main className="flex-1 bg-[var(--bg-soft)]">
+        <div className="mx-auto w-full max-w-2xl px-6 py-8">
         <div className="mb-8">
           <h1 className="text-2xl font-extrabold tracking-tight text-[var(--fg)]">Profile</h1>
           <p className="mt-1 text-sm text-[var(--mutfg)]">Your account information and service usage.</p>
@@ -177,6 +178,7 @@ function ProfilePage() {
             </button>
           </div>
         )}
+      </div>
       </main>
 
       {/* Confirmation modal */}
