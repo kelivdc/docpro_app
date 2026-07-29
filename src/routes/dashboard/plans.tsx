@@ -13,7 +13,7 @@ function PlansPage() {
   return (
     <>
       <DashboardHeader />
-      <main className="mx-auto w-full max-w-[1200px] flex-1 rounded-2xl bg-[var(--bg-soft)] px-6 py-8">
+      <main className="mx-auto w-full max-w-[1200px] flex-1 bg-[var(--bg-soft)] px-6 py-8">
         <section className="space-y-6">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>

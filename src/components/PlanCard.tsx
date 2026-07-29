@@ -26,7 +26,7 @@ export function PlanCard({
   ctaOrange?: boolean
 }) {
   const border = recommended ? 'border-amber-500 ring-2 ring-amber-500/30' : amber ? 'border-amber-500/30' : active ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-[var(--border)]'
-  const bg = highlight ? '!bg-blue-50' : ''
+  const bg = highlight ? '!bg-[var(--card-bg)]' : ''
   return (
     <div className={`card-premium flex flex-col justify-between p-5 text-center ${border} ${bg}`}>
       <div>

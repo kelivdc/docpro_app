@@ -599,7 +599,7 @@ function ChatPage() {
         </button>
 
         {/* Main chat area */}
-        <main className="flex min-w-0 flex-1 flex-col rounded-2xl bg-[var(--bg-soft)] px-6 pt-3 pb-4">
+        <main className="flex min-w-0 flex-1 flex-col bg-[var(--bg-soft)] px-6 pt-3 pb-4">
           <div className="mb-3 shrink-0">
             <h1 className="text-2xl font-extrabold tracking-tight text-[var(--fg)]">AI Chat</h1>
             <p className="mt-1.5 text-sm leading-relaxed text-[var(--mutfg)]">
@@ -689,13 +689,7 @@ function ChatPage() {
           </div>
           <div
             ref={scrollRef}
-            className="min-h-0 flex-1 space-y-4 overflow-y-auto rounded-2xl border border-[var(--border)] p-4"
-            style={{
-              backgroundImage: 'url("/chat-balasan.png")',
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              backgroundRepeat: 'no-repeat',
-            }}
+            className="relative min-h-0 flex-1 space-y-4 overflow-y-auto rounded-2xl border border-[var(--border)] bg-[url('/chat-balasan.png')] bg-cover bg-center bg-no-repeat bg-[var(--bg-soft)] dark:bg-black/85 dark:[background-blend-mode:overlay] p-4"
           >
             {messages.length === 0 && (
               <div className="flex justify-center py-16">

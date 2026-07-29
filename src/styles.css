@@ -36,6 +36,35 @@
   --card-bg: #ffffff;
 }
 
+.dark {
+  --fg: #e2e8f0;
+  --fg-soft: #94a3b8;
+  --bg: #0f172a;
+  --bg-soft: #1e293b;
+  --surface: rgba(30, 41, 59, 0.74);
+  --surface-strong: rgba(30, 41, 59, 0.92);
+  --line: rgba(148, 163, 184, 0.14);
+  --inset-glint: rgba(255, 255, 255, 0.04);
+  --primary: #60a5fa;
+  --primary-soft: #3b82f6;
+  --primary-deep: #93c5fd;
+  --accent: #34d399;
+  --danger: #f87171;
+  --warn: #fbbf24;
+  --kicker: #60a5fa;
+  --header-bg: rgba(15, 23, 42, 0.8);
+  --chip-bg: rgba(30, 41, 59, 0.85);
+  --chip-line: rgba(96, 165, 250, 0.22);
+  --link-bg-hover: rgba(30, 41, 59, 0.9);
+  --hero-a: rgba(96, 165, 250, 0.12);
+  --hero-b: rgba(167, 139, 250, 0.10);
+  --grad-brand: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+  --muted: #1e293b;
+  --mutfg: #94a3b8;
+  --border: #334155;
+  --card-bg: #1e293b;
+}
+
 * {
   box-sizing: border-box;
 }

@@ -3,6 +3,7 @@ import {
   createFileRoute,
   Outlet,
   redirect,
+  Link,
 } from '@tanstack/react-router'
 import { getSessionFromServer } from '../lib/get-session'
 import { DashboardSidebar, initials } from '../components/DashboardSidebar'
@@ -38,15 +39,35 @@ export const Route = createFileRoute('/dashboard')({
 
 function DashboardLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   return (
     <div className="flex min-h-screen bg-[var(--bg)]">
-      <DashboardSidebar
-        collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed((v) => !v)}
-      />
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setMobileOpen(false)} />
+      )}
+      <div className={`fixed inset-y-0 left-0 z-50 transition-transform md:static md:z-auto md:block ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+        <DashboardSidebar
+          collapsed={sidebarCollapsed}
+          onToggle={() => setSidebarCollapsed((v) => !v)}
+          onClose={() => setMobileOpen(false)}
+        />
+      </div>
 
       <div className="flex min-w-0 flex-1 flex-col">
+        {/* Mobile hamburger */}
+        <div className="sticky top-0 z-30 flex items-center gap-2 border-b border-[var(--border)] bg-[var(--surface)] px-3 py-2 md:hidden">
+          <button
+            onClick={() => setMobileOpen((v) => !v)}
+            className="rounded-lg p-1.5 text-[var(--mutfg)] hover:bg-[var(--muted)] hover:text-[var(--fg)]"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M3 12h18M3 6h18M3 18h18" />
+            </svg>
+          </button>
+          <Link to="/dashboard" className="text-sm font-bold text-[var(--fg)]">DocPro</Link>
+        </div>
         <Outlet />
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { useState, useEffect } from 'react'
 import Logo from './Logo'
 
 export function initials(name?: string) {
@@ -11,6 +12,16 @@ export function initials(name?: string) {
     .toUpperCase()
 }
 
+export function useTheme() {
+  const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'))
+  useEffect(() => {
+    const cls = document.documentElement.classList
+    if (dark) { cls.add('dark'); localStorage.setItem('docpro-theme', 'dark') }
+    else { cls.remove('dark'); localStorage.setItem('docpro-theme', 'light') }
+  }, [dark])
+  return [dark, () => setDark((v) => !v)] as const
+}
+
 const ACTIVE_CLS = 'bg-blue-500/10 text-blue-600 font-semibold'
 const INACTIVE_CLS =
   'text-[var(--mutfg)] hover:bg-[var(--muted)] hover:text-[var(--fg)]'
@@ -21,12 +32,14 @@ export function SidebarItem({
   to,
   end,
   collapsed,
+  onClick,
 }: {
   icon: React.ReactNode
   label: string
   to?: string
   end?: boolean
   collapsed?: boolean
+  onClick?: () => void
 }) {
   const base = collapsed
     ? 'flex items-center justify-center rounded-xl p-2.5 text-sm transition-all group '
@@ -39,6 +52,7 @@ export function SidebarItem({
         className={base + INACTIVE_CLS}
         activeProps={{ className: base + ACTIVE_CLS }}
         title={collapsed ? label : undefined}
+        onClick={onClick}
       >
         <span className="shrink-0">{icon}</span>
         {!collapsed && label}
@@ -85,13 +99,15 @@ const NAV_ITEMS: { to: string; label: string; end?: boolean; icon: React.ReactNo
 export function DashboardSidebar({
   collapsed,
   onToggle,
+  onClose,
 }: {
   collapsed?: boolean
   onToggle?: () => void
+  onClose?: () => void
 }) {
   return (
     <aside
-      className={`sticky top-0 hidden h-screen md:flex shrink-0 flex-col border-r border-[var(--border)] bg-[var(--surface)] backdrop-blur-xl transition-all duration-200 ${
+      className={`flex h-screen shrink-0 flex-col border-r border-[var(--border)] bg-[var(--surface)] backdrop-blur-xl transition-all duration-200 ${
         collapsed ? 'w-16' : 'w-64'
       }`}
     >
@@ -118,10 +134,13 @@ export function DashboardSidebar({
               to={item.to}
               end={item.end}
               collapsed={collapsed}
+              onClick={onClose}
             />
           ))}
         </nav>
       </div>
+
+
     </aside>
   )
 }

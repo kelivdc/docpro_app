@@ -336,7 +336,7 @@ function FilesPage() {
   return (
     <>
       <DashboardHeader />
-      <main className="mx-auto min-h-[calc(100dvh-4rem)] w-full max-w-[1100px] rounded-2xl bg-[var(--bg-soft)] px-4 py-10 md:px-6 md:py-14">
+      <main className="mx-auto min-h-[calc(100dvh-4rem)] w-full max-w-[1100px] bg-[var(--bg-soft)] px-4 py-10 md:px-6 md:py-14">
         {status === 'done' ? (
           <div className="mx-auto flex max-w-lg flex-col items-center gap-6 rounded-2xl border border-emerald-500/20 bg-[var(--card-bg)] p-10 text-center shadow-sm">
             <div className="grid h-16 w-16 place-items-center rounded-2xl bg-emerald-500/10">

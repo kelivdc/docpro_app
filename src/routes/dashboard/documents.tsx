@@ -301,7 +301,7 @@ function DocumentsPage() {
   return (
     <>
       <DashboardHeader />
-      <main className="mx-auto w-full max-w-[1200px] flex-1 rounded-2xl bg-[var(--bg-soft)] px-6 py-7">
+      <main className="mx-auto w-full max-w-[1200px] flex-1 bg-[var(--bg-soft)] px-6 py-7">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-[var(--fg)]">My Knowledge</h1>
