@@ -118,7 +118,7 @@ export interface ChatAnswer {
 
 export class ChatLimitError extends Error {
   constructor(limit: number, current: number) {
-    super(`Batas token bulanan (${current.toLocaleString('id-ID')} / ${limit.toLocaleString('id-ID')}) tercapai. Upgrade paket untuk token lebih banyak.`)
+    super(`Monthly token limit (${current.toLocaleString('en-US')} / ${limit.toLocaleString('en-US')}) reached. Upgrade your plan for more tokens.`)
     this.name = 'ChatLimitError'
   }
 }
