@@ -587,21 +587,21 @@ function ChatPage() {
           </div>
         </div>
 
-        {/* Toggle sidebar */}
-        <button
-          onClick={() => setSidebarOpen((v) => !v)}
-          className="flex shrink-0 items-center border-r border-[var(--border)] px-1.5 text-[var(--mutfg)] hover:bg-[var(--muted)]"
-          title={sidebarOpen ? 'Close history' : 'Open history'}
-        >
-          <svg className={`h-4 w-4 transition-transform ${sidebarOpen ? '' : 'rotate-180'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M15 18l-6-6 6-6" />
-          </svg>
-        </button>
-
         {/* Main chat area */}
         <main className="flex min-w-0 flex-1 flex-col bg-[var(--bg-soft)] px-6 pt-3 pb-4">
           <div className="mb-3 shrink-0">
-            <h1 className="text-2xl font-extrabold tracking-tight text-[var(--fg)]">AI Chat</h1>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setSidebarOpen((v) => !v)}
+                className="rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-1.5 text-[var(--mutfg)] hover:bg-[var(--muted)] hover:text-[var(--fg)]"
+                title={sidebarOpen ? 'Close history' : 'Open history'}
+              >
+                <svg className={`h-4 w-4 transition-transform ${sidebarOpen ? '' : 'rotate-180'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+              </button>
+              <h1 className="text-2xl font-extrabold tracking-tight text-[var(--fg)]">AI Chat</h1>
+            </div>
             <p className="mt-1.5 text-sm leading-relaxed text-[var(--mutfg)]">
               Answers are based only on your uploaded documents. Verify source Knowledge for
               important decisions.
