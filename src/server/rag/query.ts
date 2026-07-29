@@ -1,4 +1,4 @@
-import { getVectorStore, getTenantContext, getMonthlyTokenUsage, incrementChatUsage } from '../tenant'
+import { getVectorStore, getTenantContext, getMonthlyTokenUsage, incrementChatUsage, getAvailableTopupBalance } from '../tenant'
 import { embed } from '../llm'
 import { getLlmProvider, type ChatMessage } from '../llm'
 import { chatConfig } from './chat-config'
@@ -117,8 +117,8 @@ export interface ChatAnswer {
 }
 
 export class ChatLimitError extends Error {
-  constructor(limit: number, current: number) {
-    super(`Monthly token reached. Upgrade your plan for more Chat.`)
+  constructor() {
+    super(`Monthly token limit reached. Upgrade your plan for more Chat.`)
     this.name = 'ChatLimitError'
   }
 }
@@ -171,10 +171,11 @@ export async function answerQuestion(
 ): Promise<ChatAnswer> {
   const ctx = await getTenantContext(userId)
 
-  // AD-12: enforce monthly token limit
+  // AD-12: enforce monthly token limit, with top-up overflow support
   const monthTokens = await getMonthlyTokenUsage(userId)
   if (monthTokens >= ctx.limits.tokenPerMonth) {
-    throw new ChatLimitError(ctx.limits.tokenPerMonth, monthTokens)
+    const topupAvailable = await getAvailableTopupBalance(userId)
+    if (topupAvailable <= 0) throw new ChatLimitError()
   }
 
   // Resolve a standalone question when the conversation has prior turns.
@@ -266,7 +267,10 @@ export async function continueAnswer(
 ): Promise<ChatAnswer> {
   const ctx = await getTenantContext(userId)
   const monthTokens = await getMonthlyTokenUsage(userId)
-  if (monthTokens >= ctx.limits.tokenPerMonth) throw new ChatLimitError(ctx.limits.tokenPerMonth, monthTokens)
+  if (monthTokens >= ctx.limits.tokenPerMonth) {
+    const topupAvailable = await getAvailableTopupBalance(userId)
+    if (topupAvailable <= 0) throw new ChatLimitError()
+  }
 
   const effectiveQuestion =
     opts?.history && opts.history.length > 0 ? await rewriteToStandalone(userId, opts.history, question) : question
@@ -343,7 +347,10 @@ export async function* streamAnswer(
 ): AsyncGenerator<string, ChatAnswer, unknown> {
   const ctx = await getTenantContext(userId)
   const monthTokens = await getMonthlyTokenUsage(userId)
-  if (monthTokens >= ctx.limits.tokenPerMonth) throw new ChatLimitError(ctx.limits.tokenPerMonth, monthTokens)
+  if (monthTokens >= ctx.limits.tokenPerMonth) {
+    const topupAvailable = await getAvailableTopupBalance(userId)
+    if (topupAvailable <= 0) throw new ChatLimitError()
+  }
 
   const vector = await embed(question)
   const { hits, matched } = await retrieveReranked(userId, vector, opts)

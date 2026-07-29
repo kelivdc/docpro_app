@@ -1,6 +1,6 @@
 import { db, pool } from '../lib/db'
-import { tenantMap, usage, TIER_LIMITS, type Tier, type LlmMode } from '../lib/schema/tenant'
-import { eq } from 'drizzle-orm'
+import { tenantMap, subscriptions, topupTokens, TIER_LIMITS, type Tier, type LlmMode } from '../lib/schema/tenant'
+import { eq, and, sql } from 'drizzle-orm'
 import { PgVectorStore, type VectorStore } from './rag/vector-store'
 import { QdrantVectorStore } from './rag/qdrant'
 
@@ -119,6 +119,16 @@ export async function incrementChatUsage(
       [userId, month, cost?.promptTokens ?? 0, cost?.completionTokens ?? 0, cost?.totalTokens ?? 0, cost?.costUsd ?? 0, cost?.costIdr ?? 0],
     )
   }
+
+  // Track top-up consumption: topup_used = max(0, total_month_tokens - plan_limit)
+  const ctx = await getTenantContext(userId)
+  const newTotal = await getMonthlyTokenUsage(userId)
+  if (newTotal > ctx.limits.tokenPerMonth) {
+    await db
+      .update(tenantMap)
+      .set({ topupUsed: newTotal - ctx.limits.tokenPerMonth, updatedAt: new Date() })
+      .where(eq(tenantMap.userId, userId))
+  }
 }
 
 export async function getMonthlyTokenUsage(userId: string): Promise<number> {
@@ -143,4 +153,44 @@ export async function getVectorStore(userId: string): Promise<VectorStore> {
     )
   }
   return new PgVectorStore(pool, ctx.schemaName)
+}
+
+export async function freezeTopups(userId: string) {
+  await db
+    .update(topupTokens)
+    .set({ status: 'frozen' })
+    .where(and(eq(topupTokens.userId, userId), eq(topupTokens.status, 'active')))
+}
+
+export async function checkAndHandleExpiry(userId: string): Promise<void> {
+  const activeSub = await db.query.subscriptions.findFirst({
+    where: and(eq(subscriptions.userId, userId), eq(subscriptions.status, 'active')),
+  })
+  if (!activeSub) return
+  if (activeSub.expiresAt > new Date()) return
+
+  await db
+    .update(subscriptions)
+    .set({ status: 'expired' })
+    .where(eq(subscriptions.id, activeSub.id))
+
+  await db
+    .update(tenantMap)
+    .set({ tier: 'free', updatedAt: new Date() })
+    .where(eq(tenantMap.userId, userId))
+
+  await freezeTopups(userId)
+}
+
+export async function getAvailableTopupBalance(userId: string): Promise<number> {
+  const topupRows = await db
+    .select({ total: sql<number>`COALESCE(SUM(${topupTokens.amount}), 0)` })
+    .from(topupTokens)
+    .where(and(eq(topupTokens.userId, userId), eq(topupTokens.status, 'active')))
+  const topupTotal = topupRows[0]?.total ?? 0
+
+  const tm = await db.query.tenantMap.findFirst({ where: eq(tenantMap.userId, userId) })
+  const topupUsed = tm?.topupUsed ?? 0
+
+  return topupTotal - topupUsed
 }

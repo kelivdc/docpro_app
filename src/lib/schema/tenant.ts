@@ -10,6 +10,8 @@ import { user } from './auth'
 
 export type Tier = 'free' | 'personal' | 'business' | 'enterprise' | 'custom'
 export type LlmMode = 'cloud' | 'ollama'
+export type SubscriptionStatus = 'active' | 'expired' | 'cancelled'
+export type TopupStatus = 'active' | 'frozen' | 'consumed' | 'expired'
 
 // Maps a user -> tenant isolation context (AD-1, AD-11).
 // Free/Personal share schema `person` + bucket `person`.
@@ -26,8 +28,35 @@ export const tenantMap = pgTable('tenant_map', {
   orgId: text('org_id'),
   deletedAt: timestamp('deleted_at'),
   purgedAt: timestamp('purged_at'),
+  topupUsed: integer('topup_used').notNull().default(0),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
+})
+
+// Monthly subscription per user (AD-1).
+export const subscriptions = pgTable('subscriptions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  tier: text('tier').notNull(), // 'pro' | 'business'
+  startedAt: timestamp('started_at').notNull().defaultNow(),
+  expiresAt: timestamp('expires_at').notNull(),
+  status: text('status').notNull().default('active'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+})
+
+// Top-up token batches (AD-2).
+export const topupTokens = pgTable('topup_tokens', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  amount: integer('amount').notNull(),
+  purchasePrice: real('purchase_price').notNull(),
+  purchasedAt: timestamp('purchased_at').notNull().defaultNow(),
+  expiresAt: timestamp('expires_at').notNull(),
+  status: text('status').notNull().default('active'),
 })
 
 // Daily usage counters per tenant (AD-12). Reset via cron/pg_cron.

@@ -47,7 +47,7 @@ function DashboardLayout() {
       {mobileOpen && (
         <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setMobileOpen(false)} />
       )}
-      <div className={`fixed inset-y-0 left-0 z-50 transition-transform md:static md:z-auto md:block ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+      <div className={`fixed inset-y-0 left-0 z-50 transition-transform md:sticky md:top-0 md:self-start md:h-screen md:z-auto md:block ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         <DashboardSidebar
           collapsed={sidebarCollapsed}
           onToggle={() => setSidebarCollapsed((v) => !v)}

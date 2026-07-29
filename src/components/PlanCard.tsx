@@ -11,6 +11,7 @@ export function PlanCard({
   recommended,
   highlight,
   ctaOrange,
+  onClick,
 }: {
   name: string
   price: string
@@ -24,6 +25,7 @@ export function PlanCard({
   recommended?: boolean
   highlight?: boolean
   ctaOrange?: boolean
+  onClick?: () => void
 }) {
   const border = recommended ? 'border-amber-500 ring-2 ring-amber-500/30' : amber ? 'border-amber-500/30' : active ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-[var(--border)]'
   const bg = highlight ? '!bg-[var(--card-bg)]' : ''
@@ -49,6 +51,7 @@ export function PlanCard({
         {footnote && <div className="mt-3 text-[10px] text-[var(--mutfg)]" dangerouslySetInnerHTML={{ __html: footnote }} />}
       </div>
       <button
+        onClick={onClick}
         className={
           active
             ? 'mt-6 w-full cursor-default rounded-xl bg-blue-500/10 py-2.5 text-xs font-bold text-blue-600'
