@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import type { Components } from 'react-markdown'
 import { DashboardHeader } from './index'
 import { chatAsk, chatContinue, type ChatResponse } from '../../server/functions/chat'
 import {
@@ -42,6 +43,42 @@ interface Msg {
 const isNoAnswer = (text: string) =>
   /could not find|cannot find|couldn't find|no (relevant|matching)|sorry, i couldn't/i.test(text)
 
+function CodeBlock({ className, children }: { className?: string; children?: React.ReactNode }) {
+  const extractText = (node: React.ReactNode): string => {
+    if (typeof node === 'string' || typeof node === 'number') return String(node)
+    if (Array.isArray(node)) return node.map(extractText).join('')
+    if (node && typeof node === 'object' && 'props' in (node as React.ReactElement)) {
+      return extractText((node as React.ReactElement).props.children)
+    }
+    return ''
+  }
+  const text = extractText(children).replace(/\n$/, '')
+  const [copied, setCopied] = useState(false)
+  return (
+    <div className="group relative">
+      <button
+        onClick={() => {
+          navigator.clipboard.writeText(text)
+          setCopied(true)
+          setTimeout(() => setCopied(false), 1500)
+        }}
+        className="absolute right-2 top-2 z-10 rounded-lg bg-white/10 p-1.5 text-white/70 transition-opacity hover:bg-white/20 hover:text-white"
+      >
+        {copied ? (
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+        ) : (
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+        )}
+      </button>
+      <pre className={className}>{children}</pre>
+    </div>
+  )
+}
+
+const markdownComponents: Components = {
+  pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
+}
+
 function ChatPage() {
   const router = useRouter()
   const [messages, setMessages] = useState<Msg[]>([])
@@ -68,7 +105,7 @@ function ChatPage() {
   // Session state
   const [sessions, setSessions] = useState<SessionRow[]>([])
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 768)
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState('')
   const editInputRef = useRef<HTMLInputElement>(null)
@@ -686,8 +723,8 @@ function ChatPage() {
                 <div
                   className={
                     m.role === 'user'
-                      ? 'w-full max-w-full rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2.5 text-sm text-white sm:w-auto sm:max-w-[80%]'
-                      : 'w-full max-w-full rounded-2xl border border-[var(--border)] bg-[var(--muted)] px-4 py-2.5 text-sm text-[var(--fg)] sm:w-auto sm:max-w-[85%]'
+                      ? 'w-auto max-w-[85%] rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2.5 text-sm text-white'
+                      : 'w-full rounded-2xl border border-[var(--border)] bg-[var(--muted)] px-4 py-2.5 text-sm text-[var(--fg)]'
                   }
                 >
                   {m.pending ? (
@@ -697,8 +734,8 @@ function ChatPage() {
                       <span className="h-2 w-2 animate-bounce rounded-full bg-[var(--mutfg)]" />
                     </span>
                   ) : m.role === 'assistant' ? (
-                    <div className="prose prose-sm max-w-none break-words text-[var(--fg)] prose-headings:font-bold prose-headings:text-[var(--fg)] prose-p:my-1.5 prose-li:my-0.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-pre:bg-black/80 prose-pre:text-white prose-code:text-pink-300 prose-strong:text-[var(--fg)] prose-a:text-blue-500 prose-table:text-xs">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                    <div className="prose prose-sm max-w-none break-words text-[var(--fg)] prose-headings:font-bold prose-headings:text-[var(--fg)] prose-p:my-1.5 prose-li:my-0.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-pre:bg-black/80 prose-pre:text-white prose-pre:relative prose-code:text-pink-300 prose-strong:text-[var(--fg)] prose-a:text-blue-500 prose-table:text-xs">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{m.content}</ReactMarkdown>
                     </div>
                   ) : (
                     <p className="whitespace-pre-wrap">{m.content}</p>
