@@ -89,19 +89,8 @@ export function DashboardHeader() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-[var(--border)] bg-[var(--surface)] backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-end gap-4 px-6">
+      <div className="flex h-16 items-center justify-end gap-4 px-6">
         <div className="flex items-center gap-2">
-          <div className="relative hidden md:block">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--mutfg)]">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="7" strokeLinecap="round" /><path d="m21 21-4.3-4.3" strokeLinecap="round" /></svg>
-            </span>
-            <input
-              className="w-64 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] py-2 pl-9 pr-10 text-sm text-[var(--fg)] placeholder:text-[var(--mutfg)] focus:outline-none lg:w-80"
-              placeholder="Search document activity…"
-            />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded border border-[var(--border)] bg-[var(--muted)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--mutfg)]">/</span>
-          </div>
-
           <button
             onClick={toggleDark}
             className="rounded-lg p-2 text-[var(--mutfg)] hover:bg-[var(--muted)] hover:text-[var(--fg)]"
@@ -229,7 +218,8 @@ function DashboardHome() {
   return (
     <>
       <DashboardHeader />
-      <main className="mx-auto w-full max-w-[1200px] flex-1 space-y-8 bg-[var(--bg-soft)] px-6 py-8">
+      <main className="flex-1 bg-[var(--bg-soft)]">
+        <div className="mx-auto w-full max-w-[1200px] space-y-8 px-6 py-8">
         {/* Greeting */}
         <section className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -453,6 +443,7 @@ function DashboardHome() {
             </a>
           </span>
         </footer>
+      </div>
       </main>
     </>
   )

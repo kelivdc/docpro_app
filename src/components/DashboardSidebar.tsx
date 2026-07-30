@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
 import Logo from './Logo'
+import { useSidebarState } from '../lib/sidebar-state'
 
 export function initials(name?: string) {
   if (!name) return 'U'
@@ -99,33 +100,17 @@ const NAV_ITEMS: { to: string; label: string; end?: boolean; icon: React.ReactNo
   },
 ]
 
-export function DashboardSidebar({
-  collapsed,
-  onToggle,
-  onClose,
-}: {
-  collapsed?: boolean
-  onToggle?: () => void
-  onClose?: () => void
-}) {
+export function DashboardSidebar({ onClose }: { onClose?: () => void }) {
+  const { collapsed, toggle } = useSidebarState()
   return (
     <aside
-      className={`flex h-screen shrink-0 flex-col border-r border-[var(--border)] bg-[var(--surface)] backdrop-blur-xl transition-all duration-200 ${
+      className={`relative flex h-screen shrink-0 flex-col border-r border-[var(--border)] bg-[var(--surface)] backdrop-blur-xl transition-all duration-200 ${
         collapsed ? 'w-16' : 'w-64'
       }`}
     >
       <div className="flex min-h-0 flex-1 flex-col gap-4 p-3">
         <div className={`flex items-center ${collapsed ? 'justify-center' : 'justify-between'}`}>
           <Logo height={collapsed ? 24 : 30} showText={!collapsed} linkTo="/" />
-          <button
-            onClick={onToggle}
-            className="rounded-lg p-1.5 text-[var(--mutfg)] hover:bg-[var(--muted)] hover:text-[var(--fg)]"
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            <svg className={`h-4 w-4 transition-transform ${collapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
-          </button>
         </div>
 
         <nav className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto text-sm">
@@ -143,7 +128,23 @@ export function DashboardSidebar({
         </nav>
       </div>
 
-
+      <button
+        type="button"
+        onClick={toggle}
+        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        className="absolute -right-3 top-1/2 hidden h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--card-bg)] text-[var(--mutfg)] shadow-sm hover:text-[var(--fg)] md:flex"
+      >
+        <svg
+          className={`h-3 w-3 transition-transform ${collapsed ? 'rotate-180' : ''}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+        >
+          <path d="M15 18l-6-6 6-6" />
+        </svg>
+      </button>
     </aside>
   )
 }

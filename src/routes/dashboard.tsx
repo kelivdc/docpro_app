@@ -45,7 +45,6 @@ export const Route = createFileRoute('/dashboard')({
 })
 
 function DashboardLayout() {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
   return (
@@ -55,11 +54,7 @@ function DashboardLayout() {
         <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setMobileOpen(false)} />
       )}
       <div className={`fixed inset-y-0 left-0 z-50 transition-transform md:sticky md:top-0 md:self-start md:h-screen md:z-auto md:block ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-        <DashboardSidebar
-          collapsed={sidebarCollapsed}
-          onToggle={() => setSidebarCollapsed((v) => !v)}
-          onClose={() => setMobileOpen(false)}
-        />
+        <DashboardSidebar onClose={() => setMobileOpen(false)} />
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col">

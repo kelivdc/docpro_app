@@ -81,7 +81,8 @@ function CategoriesPage() {
   return (
     <>
       <DashboardHeader />
-      <main className="mx-auto w-full max-w-[1200px] flex-1 space-y-8 bg-[var(--bg-soft)] px-6 py-8">
+      <main className="flex-1 bg-[var(--bg-soft)]">
+        <div className="mx-auto w-full max-w-[1200px] space-y-8 px-6 py-8">
         <section className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight text-[var(--fg)]">Category Management</h1>
@@ -223,6 +224,7 @@ function CategoriesPage() {
             <div className="mt-0.5 text-xs text-[var(--mutfg)]">Create custom grouping</div>
           </div>
         </section>
+      </div>
       </main>
     </>
   )

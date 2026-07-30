@@ -796,13 +796,6 @@ function ChatPage() {
                           </li>
                         ))}
                       </ul>
-                      <button
-                        type="button"
-                        onClick={() => speak(m.content, i)}
-                        className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-2.5 py-1 text-xs font-medium text-[var(--fg)] hover:bg-[var(--card-bg)]"
-                      >
-                        🔊 Listen to answer
-                      </button>
                     </div>
                   )}
 
