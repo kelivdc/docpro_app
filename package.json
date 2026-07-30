@@ -18,6 +18,8 @@
     "db:setup": "tsx scripts/setup-tenant.ts"
   },
   "dependencies": {
+    "@sentry/node": "^10.69.0",
+    "@sentry/react": "^10.69.0",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-devtools": "latest",
     "@tanstack/react-router": "latest",
@@ -39,10 +41,10 @@
     "react-dom": "^19.2.0",
     "react-markdown": "^9.1.0",
     "remark-gfm": "^4.0.1",
+    "srvx": "^0.11.22",
     "tailwindcss": "^4.1.18",
     "tesseract.js": "^5.1.0",
-    "xlsx": "^0.18.5",
-    "srvx": "^0.11.22"
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.16",

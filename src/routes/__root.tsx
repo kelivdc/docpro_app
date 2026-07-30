@@ -1,8 +1,10 @@
+import { useEffect } from 'react'
 import { HeadContent, Scripts, createRootRoute, useLocation } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 import Footer from '../components/Footer'
 import Header from '../components/Header'
+import { Sentry, initClientSentry } from '../lib/sentry'
 
 import appCss from '../styles.css?url'
 
@@ -64,6 +66,8 @@ function RootDocument({ children }: { children: React.ReactNode }) {
     path !== '/forgot-password' &&
     !path.startsWith('/dashboard')
 
+  useEffect(() => { initClientSentry() }, [])
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -71,9 +75,27 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body className="font-sans antialiased [overflow-wrap:anywhere] selection:bg-[rgba(79,184,178,0.24)]">
-        {showChrome && <Header />}
-        {children}
-        {showChrome && <Footer />}       
+        <Sentry.ErrorBoundary fallback={({ error }) => {
+          Sentry.captureException(error)
+          return (
+            <div className="grid min-h-screen place-items-center bg-[var(--bg)] px-4 text-center">
+              <div className="max-w-md">
+                <h1 className="text-3xl font-extrabold text-[var(--fg)]">Something went wrong</h1>
+                <p className="mt-3 text-sm text-[var(--mutfg)]">An unexpected error occurred. Please try again.</p>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="mt-6 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-blue-700"
+                >
+                  Reload page
+                </button>
+              </div>
+            </div>
+          )
+        }}>
+          {showChrome && <Header />}
+          {children}
+          {showChrome && <Footer />}
+        </Sentry.ErrorBoundary>
         <Scripts />
       </body>
     </html>

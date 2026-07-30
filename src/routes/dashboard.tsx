@@ -16,17 +16,24 @@ export { SidebarItem } from '../components/DashboardSidebar'
 
 export const Route = createFileRoute('/dashboard')({
   beforeLoad: async () => {
-    const session = await getSessionFromServer()
-    if (!session) {
-      throw redirect({ to: '/login' })
-    }
+    try {
+      const session = await getSessionFromServer()
+      if (!session) {
+        throw redirect({ to: '/login' })
+      }
 
-    const { blocked } = await checkAccountBlocked()
-    if (blocked) {
-      throw redirect({ to: '/login', search: { blocked } })
-    }
+      const { blocked } = await checkAccountBlocked()
+      if (blocked) {
+        throw redirect({ to: '/login', search: { blocked } })
+      }
 
-    return { session }
+      return { session }
+    } catch (error: any) {
+      if (error instanceof redirect || error?.code === 'redirect') throw error
+      const { Sentry } = await import('../lib/sentry')
+      Sentry.captureException(error)
+      throw error
+    }
   },
   loader: async (): Promise<DashboardUsage> => {
     return getDashboardUsage()

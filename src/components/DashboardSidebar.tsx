@@ -13,7 +13,10 @@ export function initials(name?: string) {
 }
 
 export function useTheme() {
-  const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'))
+  const [dark, setDark] = useState(false)
+  useEffect(() => {
+    setDark(document.documentElement.classList.contains('dark'))
+  }, [])
   useEffect(() => {
     const cls = document.documentElement.classList
     if (dark) { cls.add('dark'); localStorage.setItem('docpro-theme', 'dark') }

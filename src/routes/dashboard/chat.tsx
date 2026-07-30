@@ -18,6 +18,8 @@ import {
   type MessageRow,
 } from '../../server/functions/sessions'
 import { listDocuments } from '../../server/functions/upload'
+import { listCategories } from '../../server/functions/categories'
+import type { CategoryView } from '../../server/functions/categories'
 
 export const Route = createFileRoute('/dashboard/chat')({
   component: ChatPage,
@@ -97,7 +99,9 @@ function ChatPage() {
   const cancelSpeakRef = useRef(false)
 
   // Document source selection
-  const [documents, setDocuments] = useState<{ id: string; name: string }[]>([])
+  const [documents, setDocuments] = useState<{ id: string; name: string; category: string | null; status: string }[]>([])
+  const [categories, setCategories] = useState<CategoryView[]>([])
+  const [catFilter, setCatFilter] = useState<string | null>(null)
   const [allSources, setAllSources] = useState(false)
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([])
   const [docPickerOpen, setDocPickerOpen] = useState(false)
@@ -126,6 +130,7 @@ function ChatPage() {
       })))
       setSelectedDocIds(session.documentIds ?? [])
       setAllSources(!session.documentIds || session.documentIds.length === 0)
+      setCatFilter(null)
       setHistory(msgs.filter((m) => m.role === 'user').map((m) => m.content))
     } catch {
       // ignore
@@ -166,9 +171,11 @@ function ChatPage() {
   // Initialize: load sessions, last session, and documents
   useEffect(() => {
     ;(async () => {
-      const [all, docs] = await Promise.all([listSessions(), listDocuments()])
+      const [all, docs, cats] = await Promise.all([listSessions(), listDocuments(), listCategories()])
       setSessions(all)
-      setDocuments(docs.map((d) => ({ id: d.id, name: d.name })))
+      const readyDocs = docs.filter((d) => d.status === 'ready')
+      setDocuments(readyDocs.map((d) => ({ id: d.id, name: d.name, category: d.category ?? null, status: d.status })))
+      setCategories(cats.categories)
       if (all.length > 0) {
         const last = await getLastSession()
         if (last) {
@@ -642,11 +649,44 @@ function ChatPage() {
                     />
                     All Sources
                   </label>
+
+                  {(() => {
+                    const catsWithDocs = categories.filter((c) => documents.some((d) => d.category === c.name))
+                    if (catsWithDocs.length === 0) return null
+                    return (
+                      <>
+                        <div className="my-1 border-t border-[var(--border)]" />
+                        <div className="px-1.5 pb-1">
+                          <select
+                            value={catFilter ?? ''}
+                            onChange={(e) => {
+                              const val = e.target.value
+                              if (val === '') {
+                                setCatFilter(null)
+                              } else {
+                                setCatFilter(val)
+                                const catDocIds = documents.filter((d) => d.category === val).map((d) => d.id)
+                                setAllSources(false)
+                                setSelectedDocIds(catDocIds)
+                              }
+                            }}
+                            className="w-full rounded-lg border border-[var(--border)] bg-[var(--card-bg)] px-2 py-1.5 text-xs text-[var(--fg)] focus:outline-none"
+                          >
+                            <option value="">All categories</option>
+                            {catsWithDocs.map((c) => (
+                              <option key={c.id} value={c.name}>{c.icon} {c.name} ({documents.filter((d) => d.category === c.name).length})</option>
+                            ))}
+                          </select>
+                        </div>
+                      </>
+                    )
+                  })()}
+
                   <div className="my-1 border-t border-[var(--border)]" />
                   {!allSources && documents.length === 0 && (
                     <p className="px-2 py-3 text-xs text-[var(--mutfg)]">No documents uploaded yet.</p>
                   )}
-                  {!allSources && documents.map((doc) => {
+                  {!allSources && (catFilter ? documents.filter((d) => d.category === catFilter) : documents).map((doc) => {
                     const checked = selectedDocIds.includes(doc.id)
                     return (
                       <label

@@ -140,6 +140,9 @@ export async function ingestDocument(input: IngestInput): Promise<IngestResult> 
 
     // 4. embed (after smart chunking) then store
     const vectors = await embedBatch(chunks.map((c) => c.content))
+    if (vectors.length !== chunks.length || vectors.some((v) => !Array.isArray(v) || v.length === 0)) {
+      throw new Error(`Embedding failed: expected ${chunks.length} valid vectors, got ${vectors.length}`)
+    }
     const withEmbed: Array<IntelligentChunk & { embedding: number[] }> = chunks.map((c, i) => ({
       ...c,
       embedding: vectors[i],

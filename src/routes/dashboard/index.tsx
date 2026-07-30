@@ -189,6 +189,9 @@ function DashboardHome() {
   const tokenUsed = usage?.tokenUsed ?? 0
   const tokenTotal = usage?.tokenTotal ?? 0
   const tokenPct = usage?.tokenPct ?? 0
+  const topupTotal = usage?.topupTotal ?? 0
+  const topupUsed = usage?.topupUsed ?? 0
+  const topupPct = topupTotal > 0 ? Math.min(100, Math.round((topupUsed / topupTotal) * 100)) : 0
   const documentCount = usage?.documentCount ?? 0
   const chatCount = usage?.chatCount ?? 0
   const recentDocuments = usage?.recentDocuments ?? []
@@ -221,7 +224,7 @@ function DashboardHome() {
     ? `${linePath} L ${points[points.length - 1].x} ${padTop + innerH} L ${points[0].x} ${padTop + innerH} Z`
     : ''
 
-  const formatToken = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}K` : `${n}`
+  const formatToken = (n: number) => n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}K` : `${n}`
 
   return (
     <>
@@ -381,6 +384,20 @@ function DashboardHome() {
                     <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500" style={{ width: `${tokenPct}%` }} />
                   </div>
                 </div>
+                {topupTotal > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs font-bold">
+                      <span className="flex items-center gap-1.5 text-[var(--mutfg)]">
+                        <svg className="h-3.5 w-3.5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        Additional Tokens
+                      </span>
+                      <span className="text-[var(--fg)]">{formatToken(topupUsed)} <span className="font-medium text-[var(--mutfg)]">/ {formatToken(topupTotal)}</span></span>
+                    </div>
+                    <div className="h-2.5 overflow-hidden rounded-full bg-[var(--muted)]">
+                      <div className="h-full rounded-full bg-gradient-to-r from-purple-500 to-pink-500" style={{ width: `${topupPct}%` }} />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-wrap items-center gap-3 border-t border-[var(--border)]/50 pt-4">

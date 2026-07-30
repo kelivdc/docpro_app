@@ -5,6 +5,7 @@ import { getTenantContext, getMonthlyTokenUsage } from '../tenant'
 import { db } from '../../lib/db'
 import { documents } from '../../lib/schema/documents'
 import { chatSessions } from '../../lib/schema/chat'
+import { topupTokens, tenantMap } from '../../lib/schema/tenant'
 import { eq, sql, desc, and, gte } from 'drizzle-orm'
 
 function currentUserId(): Promise<string> {
@@ -39,6 +40,8 @@ export interface DashboardUsage {
   tokenUsed: number
   tokenTotal: number
   tokenPct: number
+  topupTotal: number
+  topupUsed: number
   documentCount: number
   chatCount: number
   recentDocuments: RecentDoc[]
@@ -127,6 +130,18 @@ export const getDashboardUsage = createServerFn({ method: 'GET' }).handler(async
     chatTrend.push({ date: dateStr, label, count: trendMap.get(dateStr) ?? 0 })
   }
 
+  // Top-up token data
+  const topupRow = await db
+    .select({ total: sql<number>`COALESCE(SUM(${topupTokens.amount}), 0)` })
+    .from(topupTokens)
+    .where(and(eq(topupTokens.userId, userId), eq(topupTokens.status, 'active')))
+  const topupTotal = topupRow[0]?.total ?? 0
+  const tm = await db.query.tenantMap.findFirst({
+    where: eq(tenantMap.userId, userId),
+    columns: { topupUsed: true },
+  })
+  const topupUsed = tm?.topupUsed ?? 0
+
   // Calculations
   const storageTotalMb = Math.round(ctx.limits.storageBytes / (1024 * 1024))
   const storageUsedMb = Math.round(storageUsedBytes / (1024 * 1024))
@@ -141,6 +156,8 @@ export const getDashboardUsage = createServerFn({ method: 'GET' }).handler(async
     tokenUsed,
     tokenTotal: ctx.limits.tokenPerMonth,
     tokenPct,
+    topupTotal,
+    topupUsed,
     documentCount,
     chatCount,
     recentDocuments,
