@@ -47,6 +47,7 @@ export function DonutChart({ pct, label, value, subvalue, color, size = 120 }: D
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-xl font-extrabold text-[var(--fg)]">{clampedPct}%</span>
+          <span className="text-[10px] font-medium text-[var(--mutfg)]">available</span>
         </div>
       </div>
       <div className="text-center">

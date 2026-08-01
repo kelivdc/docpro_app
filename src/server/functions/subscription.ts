@@ -4,8 +4,20 @@ import { getRequest } from '@tanstack/react-start/server'
 import { db } from '../../lib/db'
 import { tenantMap, subscriptions, topupTokens } from '../../lib/schema/tenant'
 import { price } from '../../lib/schema/price'
-import { eq, sql, and, asc } from 'drizzle-orm'
+import { eq, sql, and, asc, desc } from 'drizzle-orm'
 import { getTenantContext } from '../tenant'
+
+const TIER_RANK: Record<string, number> = {
+  free: 0,
+  pro: 1,
+  business: 2,
+  enterprise: 3,
+  custom: 4,
+}
+
+function tierRank(tier: string): number {
+  return TIER_RANK[tier] ?? 0
+}
 
 function currentUserId(): Promise<string> {
   return auth.api
@@ -96,6 +108,7 @@ export const getSubscriptionStatus = createServerFn({ method: 'GET' }).handler(a
 
   const activeSub = await db.query.subscriptions.findFirst({
     where: and(eq(subscriptions.userId, userId), eq(subscriptions.status, 'active')),
+    orderBy: [desc(subscriptions.createdAt)],
   })
 
   const topupRows = await db
@@ -120,6 +133,20 @@ export const purchaseSubscription = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const userId = await currentUserId()
     const now = new Date()
+
+    const activeSub = await db.query.subscriptions.findFirst({
+      where: and(eq(subscriptions.userId, userId), eq(subscriptions.status, 'active')),
+      orderBy: [desc(subscriptions.createdAt)],
+    })
+
+    if (activeSub && activeSub.expiresAt > now) {
+      if (tierRank(data.tier) < tierRank(activeSub.tier)) {
+        throw new Error(
+          `Cannot downgrade from ${activeSub.tier} to ${data.tier} before your current plan expires on ${activeSub.expiresAt.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}.`
+        )
+      }
+    }
+
     const expiresAt = new Date(now)
     expiresAt.setMonth(expiresAt.getMonth() + 1)
 

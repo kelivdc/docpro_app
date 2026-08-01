@@ -36,12 +36,25 @@ function formatPrice(price: number, tier: string): string {
   return `$${price}`
 }
 
-function formatCta(tier: string, planTier: string, busy: boolean): string {
+function formatCta(tier: string, planTier: string, busy: boolean, isDowngrade: boolean): string {
   if (tier === planTier) return 'Active'
   if (busy) return '…'
+  if (isDowngrade) return 'Locked'
   if (planTier === 'enterprise') return 'Contact Sales'
   if (tier === 'free') return planTier === 'pro' ? 'Upgrade' : 'Choose Business'
   return `Switch to ${planTier.charAt(0).toUpperCase() + planTier.slice(1)}`
+}
+
+const TIER_RANK: Record<string, number> = {
+  free: 0,
+  pro: 1,
+  business: 2,
+  enterprise: 3,
+  custom: 4,
+}
+
+function tierRank(tier: string): number {
+  return TIER_RANK[tier] ?? 0
 }
 
 function PlansPage() {
@@ -49,13 +62,25 @@ function PlansPage() {
   const tier = usage?.tier ?? 'free'
   const router = useRouter()
   const [busy, setBusy] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const activeTier = sub.active ? sub.tier : null
+  const activeExpiresAt = sub.active && sub.expiresAt ? new Date(sub.expiresAt) : null
+
+  const isDowngrade = (planTier: string) => {
+    if (!activeTier || !activeExpiresAt || activeExpiresAt <= new Date()) return false
+    return tierRank(planTier) < tierRank(activeTier)
+  }
 
   const handleSubscribe = async (planTier: string) => {
     if (planTier === 'enterprise') return
+    setError(null)
     setBusy(`sub-${planTier}`)
     try {
       await purchaseSubscription({ data: { tier: planTier } })
       router.invalidate()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Subscription failed')
     } finally {
       setBusy(null)
     }
@@ -100,24 +125,33 @@ function PlansPage() {
               </div>
             )}
 
+            {error && (
+              <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-600">
+                {error}
+              </div>
+            )}
+
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mx-auto max-w-5xl">
-              {plans.map((plan) => (
-                <PlanCard
-                  key={plan.id}
-                  name={plan.name}
-                  price={formatPrice(plan.price, plan.tier)}
-                  note={plan.note ?? ''}
-                  features={plan.features.map((f) =>
-                    f.toLowerCase().startsWith('everything in') ? `<strong class="text-orange-600">${f}</strong>` : f,
-                  )}
-                  active={tier === plan.tier}
-                  recommended={plan.highlighted}
-                  highlight={plan.highlighted}
-                  amber={plan.tier === 'enterprise'}
-                  cta={formatCta(tier, plan.tier, busy === `sub-${plan.tier}`)}
-                  onClick={plan.tier !== 'enterprise' && tier !== plan.tier ? () => handleSubscribe(plan.tier) : undefined}
-                />
-              ))}
+              {plans.map((plan) => {
+                const down = isDowngrade(plan.tier)
+                return (
+                  <PlanCard
+                    key={plan.id}
+                    name={plan.name}
+                    price={formatPrice(plan.price, plan.tier)}
+                    note={plan.note ?? ''}
+                    features={plan.features.map((f) =>
+                      f.toLowerCase().startsWith('everything in') ? `<strong class="text-orange-600">${f}</strong>` : f,
+                    )}
+                    active={tier === plan.tier}
+                    recommended={plan.highlighted}
+                    highlight={plan.highlighted}
+                    amber={plan.tier === 'enterprise'}
+                    cta={formatCta(tier, plan.tier, busy === `sub-${plan.tier}`, down)}
+                    onClick={plan.tier !== 'enterprise' && tier !== plan.tier && !down ? () => handleSubscribe(plan.tier) : undefined}
+                  />
+                )
+              })}
             </div>
 
             {(tier === 'pro' || tier === 'business') && topups.length > 0 && (

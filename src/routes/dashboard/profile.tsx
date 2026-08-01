@@ -5,8 +5,10 @@ import { Route as DashboardRoute } from '../dashboard'
 import { signOut } from '../../lib/auth-client'
 import { deleteAccount, cancelDeleteAccount } from '../../server/functions/delete-account'
 import { DonutChart } from '../../components/DonutChart'
+import { getSubscriptionStatus } from '../../server/functions/subscription'
 
 export const Route = createFileRoute('/dashboard/profile')({
+  loader: async () => ({ sub: await getSubscriptionStatus() }),
   component: ProfilePage,
   head: () => ({
     meta: [{ title: 'DocPro — Profile' }],
@@ -16,6 +18,7 @@ export const Route = createFileRoute('/dashboard/profile')({
 function ProfilePage() {
   const { session } = DashboardRoute.useRouteContext()
   const usage = DashboardRoute.useLoaderData()
+  const { sub } = Route.useLoaderData()
   const user = session.user
   const navigate = useNavigate()
   const storagePct = usage?.storagePct ?? 0
@@ -27,12 +30,12 @@ function ProfilePage() {
   const formatToken = (n: number) => n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}K` : `${n}`
 
   const charts = [
-    { label: 'File Storage', pct: 100 - storagePct, value: `${usage?.storageUsedMb ?? 0} MB`, subvalue: `${usage?.storageTotalMb ?? 0} MB`, color: '#3b82f6 #4f46e5' },
-    { label: 'Monthly AI Tokens', pct: 100 - tokenPct, value: formatToken(usage?.tokenUsed ?? 0), subvalue: formatToken(usage?.tokenTotal ?? 0), color: '#10b981 #14b8a6' },
+    { label: 'File Storage', pct: 100 - storagePct, value: `${(usage?.storageTotalMb ?? 0) - (usage?.storageUsedMb ?? 0)} MB`, subvalue: `${usage?.storageTotalMb ?? 0} MB`, color: '#3b82f6 #4f46e5' },
+    { label: 'Monthly AI Tokens', pct: 100 - tokenPct, value: formatToken((usage?.tokenTotal ?? 0) - (usage?.tokenUsed ?? 0)), subvalue: formatToken(usage?.tokenTotal ?? 0), color: '#10b981 #14b8a6' },
   ]
   if (usage && usage.topupTotal > 0) {
     const topupPct = Math.min(100, Math.round((usage.topupUsed / usage.topupTotal) * 100))
-    charts.push({ label: 'Top-Up Tokens', pct: 100 - topupPct, value: formatToken(usage.topupUsed), subvalue: formatToken(usage.topupTotal), color: '#a855f7 #ec4899' })
+    charts.push({ label: 'Top-Up Tokens', pct: 100 - topupPct, value: formatToken(usage.topupTotal - usage.topupUsed), subvalue: formatToken(usage.topupTotal), color: '#a855f7 #ec4899' })
   }
 
   const [confirmText, setConfirmText] = useState('')
@@ -91,9 +94,15 @@ function ProfilePage() {
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h2 className="text-base font-bold text-[var(--fg)]">{tier} Plan</h2>
-              <p className="text-xs text-[var(--mutfg)]">Tokens reset at the start of each month.</p>
+              <p className="text-xs text-[var(--mutfg)]">
+                {sub.active && sub.expiresAt
+                  ? <>Expires {new Date(sub.expiresAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</>
+                  : 'Never expired'}
+              </p>
             </div>
-            <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-600">Active</span>
+            <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-600">
+              {sub.active ? 'Active' : 'Free'}
+            </span>
           </div>
           <div className="flex flex-wrap justify-around gap-6 py-2">
             {charts.map((c) => (
@@ -124,6 +133,14 @@ function ProfilePage() {
             <div className="flex justify-between">
               <dt className="text-[var(--mutfg)]">Plan</dt>
               <dd className="font-medium text-[var(--fg)]">{tier}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-[var(--mutfg)]">Expires</dt>
+              <dd className="font-medium text-[var(--fg)]">
+                {sub.active && sub.expiresAt
+                  ? new Date(sub.expiresAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+                  : 'Never expired'}
+              </dd>
             </div>
           </dl>
         </div>
