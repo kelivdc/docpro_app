@@ -3,7 +3,8 @@ import { auth } from '../../lib/auth'
 import { getRequest } from '@tanstack/react-start/server'
 import { db } from '../../lib/db'
 import { tenantMap, subscriptions, topupTokens } from '../../lib/schema/tenant'
-import { eq, sql, and } from 'drizzle-orm'
+import { price } from '../../lib/schema/price'
+import { eq, sql, and, asc } from 'drizzle-orm'
 import { getTenantContext } from '../tenant'
 
 function currentUserId(): Promise<string> {
@@ -30,6 +31,65 @@ export const TOPUP_PACKAGES = [
   { tokens: 50_000_000, price: 35 },
   { tokens: 100_000_000, price: 65 },
 ] as const
+
+export interface PriceCatalog {
+  plans: PricePlan[]
+  topups: PriceTopup[]
+}
+
+export interface PricePlan {
+  id: string
+  name: string
+  tier: string
+  price: number
+  currency: string
+  features: string[]
+  note: string | null
+  highlighted: boolean
+}
+
+export interface PriceTopup {
+  id: string
+  name: string
+  tokens: number
+  price: number
+  currency: string
+  note: string | null
+}
+
+export const getPriceCatalog = createServerFn({ method: 'GET' }).handler(async (): Promise<PriceCatalog> => {
+  const rows = await db
+    .select()
+    .from(price)
+    .where(eq(price.status, 'active'))
+    .orderBy(asc(price.sortOrder))
+
+  const plans: PricePlan[] = rows
+    .filter((r) => r.type === 'plan')
+    .map((r) => ({
+      id: r.id,
+      name: r.name,
+      tier: r.tier ?? '',
+      price: Number(r.price),
+      currency: r.currency,
+      features: Array.isArray(r.features) ? (r.features as string[]) : [],
+      note: r.note,
+      highlighted: r.highlighted,
+    }))
+
+  const topups: PriceTopup[] = rows
+    .filter((r) => r.type === 'topup')
+    .map((r) => ({
+      id: r.id,
+      name: r.name,
+      tokens: Number(r.tokens ?? 0),
+      price: Number(r.price),
+      currency: r.currency,
+      note: r.note,
+    }))
+
+  return { plans, topups }
+})
 
 export const getSubscriptionStatus = createServerFn({ method: 'GET' }).handler(async (): Promise<SubscriptionStatus> => {
   const userId = await currentUserId()

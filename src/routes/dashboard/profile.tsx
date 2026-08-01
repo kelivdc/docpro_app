@@ -4,6 +4,7 @@ import { DashboardHeader } from './index'
 import { Route as DashboardRoute } from '../dashboard'
 import { signOut } from '../../lib/auth-client'
 import { deleteAccount, cancelDeleteAccount } from '../../server/functions/delete-account'
+import { DonutChart } from '../../components/DonutChart'
 
 export const Route = createFileRoute('/dashboard/profile')({
   component: ProfilePage,
@@ -18,12 +19,21 @@ function ProfilePage() {
   const user = session.user
   const navigate = useNavigate()
   const storagePct = usage?.storagePct ?? 0
-  const storageSisa = 100 - storagePct
   const tokenPct = usage?.tokenPct ?? 0
-  const tokenSisa = 100 - tokenPct
 
   const tier = (usage?.tier ?? 'free').charAt(0).toUpperCase() + (usage?.tier ?? 'free').slice(1)
   const deleted = usage?.deletionScheduled ?? false
+
+  const formatToken = (n: number) => n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}K` : `${n}`
+
+  const charts = [
+    { label: 'File Storage', pct: 100 - storagePct, value: `${usage?.storageUsedMb ?? 0} MB`, subvalue: `${usage?.storageTotalMb ?? 0} MB`, color: '#3b82f6 #4f46e5' },
+    { label: 'Monthly AI Tokens', pct: 100 - tokenPct, value: formatToken(usage?.tokenUsed ?? 0), subvalue: formatToken(usage?.tokenTotal ?? 0), color: '#10b981 #14b8a6' },
+  ]
+  if (usage && usage.topupTotal > 0) {
+    const topupPct = Math.min(100, Math.round((usage.topupUsed / usage.topupTotal) * 100))
+    charts.push({ label: 'Top-Up Tokens', pct: 100 - topupPct, value: formatToken(usage.topupUsed), subvalue: formatToken(usage.topupTotal), color: '#a855f7 #ec4899' })
+  }
 
   const [confirmText, setConfirmText] = useState('')
   const [deleting, setDeleting] = useState(false)
@@ -52,11 +62,6 @@ function ProfilePage() {
       // ignore
     }
   }
-
-  const planLimits = [
-    { label: 'File Storage', pct: storageSisa, color: 'from-blue-500 to-indigo-600' },
-    { label: 'Monthly AI Tokens', pct: tokenSisa, color: 'from-emerald-500 to-teal-500' },
-  ]
 
   return (
     <>
@@ -90,41 +95,16 @@ function ProfilePage() {
             </div>
             <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-600">Active</span>
           </div>
-          <div className="space-y-5">
-            {planLimits.map((l) => (
-              <div key={l.label}>
-                <div className="mb-1.5 flex justify-between text-sm">
-                  <span className="font-medium text-[var(--fg)]">{l.label}</span>
-                  <span className="font-semibold text-[var(--fg)]">
-                    {'used' in l ? (
-                      <>{l.used} {l.unit}<span className="font-normal text-[var(--mutfg)]"> / {l.total} {l.unit}</span></>
-                    ) : (
-                      <>{l.pct}%</>
-                    )}
-                  </span>
-                </div>
-                <div className="flex gap-1">
-                  {[0, 1, 2, 3].map((seg) => {
-                    const threshold = (seg + 1) * 25
-                    const fill = l.pct >= threshold ? 'full' : l.pct > seg * 25 && l.pct < threshold ? 'partial' : 'empty'
-                    const pctInSeg = Math.max(0, Math.min(100, (l.pct - seg * 25) / 25 * 100))
-                    return (
-                      <div key={seg} className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--muted)]">
-                        <div
-                          className={`h-full rounded-full transition-all duration-1000 ${
-                            fill === 'full'
-                              ? `bg-gradient-to-r ${l.color}`
-                              : fill === 'partial'
-                                ? `bg-gradient-to-r ${l.color}`
-                                : ''
-                          }`}
-                          style={{ width: fill === 'empty' ? '0%' : `${fill === 'full' ? 100 : pctInSeg}%` }}
-                        />
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
+          <div className="flex flex-wrap justify-around gap-6 py-2">
+            {charts.map((c) => (
+              <DonutChart
+                key={c.label}
+                pct={c.pct}
+                label={c.label}
+                value={c.value}
+                subvalue={c.subvalue}
+                color={c.color}
+              />
             ))}
           </div>
         </div>
