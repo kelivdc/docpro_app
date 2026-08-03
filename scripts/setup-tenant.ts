@@ -152,6 +152,9 @@ async function main() {
     sql`ALTER TABLE person.categories ADD COLUMN IF NOT EXISTS workspace_id text`,
   )
   await db.execute(
+    sql`ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS workspace_id text`,
+  )
+  await db.execute(
     sql`CREATE UNIQUE INDEX IF NOT EXISTS workspaces_one_default_idx ON person.workspaces (owner_id) WHERE is_default`,
   )
   await db.execute(
@@ -258,9 +261,6 @@ async function main() {
   // Ensure chat_sessions has document_ids (added after initial migration)
   await db.execute(sql.raw(`ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS document_ids text[]`))
   await db.execute(sql.raw(`ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS cost jsonb`))
-
-  // AD-WS: workspace-scoped chat sessions — each session belongs to one workspace.
-  await db.execute(sql.raw(`ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS workspace_id text`))
 
   // Soft-delete support
   await db.execute(sql.raw(`ALTER TABLE tenant_map ADD COLUMN IF NOT EXISTS deleted_at timestamptz`))
