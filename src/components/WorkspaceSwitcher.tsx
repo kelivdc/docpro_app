@@ -134,7 +134,18 @@ export function WorkspaceSwitcher() {
   const [workspaces, setWorkspaces] = useState<WorkspaceView[]>([])
   const [open, setOpen] = useState(false)
   const [modal, setModal] = useState<ModalState>(null)
+  const [toast, setToast] = useState<string | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (!toast) return
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToast(null), 3000)
+    return () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current)
+    }
+  }, [toast])
 
   useEffect(() => {
     if (!open) return
@@ -217,7 +228,10 @@ export function WorkspaceSwitcher() {
                   <button
                     type="button"
                     onClick={() => {
-                      setWorkspace(w.id)
+                      if (w.id !== workspaceId) {
+                        setWorkspace(w.id)
+                        setToast(w.name)
+                      }
                       setOpen(false)
                     }}
                     className={`flex min-w-0 flex-1 items-center gap-2 text-left ${
@@ -275,6 +289,18 @@ export function WorkspaceSwitcher() {
       )}
 
       <Modal state={modal} onClose={() => setModal(null)} />
+
+      {toast && createPortal(
+        <div className="fixed bottom-5 left-1/2 z-[70] flex -translate-x-1/2 items-center gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 shadow-2xl">
+          <span className="grid h-7 w-7 place-items-center rounded-full bg-emerald-500/10 text-emerald-600">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7" /></svg>
+          </span>
+          <span className="text-sm font-medium text-[var(--fg)]">
+            Switched to <span className="font-bold">{toast}</span>
+          </span>
+        </div>,
+        document.body,
+      )}
     </div>
   )
 }
