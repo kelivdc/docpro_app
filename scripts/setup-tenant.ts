@@ -329,6 +329,39 @@ async function main() {
     END $$`),
   )
 
+  // ---- Pricing catalog (public.price) ----
+  // Idempotent: create table + seed default plans/topups if empty.
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS price (
+      id text PRIMARY KEY,
+      type text NOT NULL,
+      name text NOT NULL,
+      tier text,
+      price numeric NOT NULL DEFAULT '0',
+      currency text NOT NULL DEFAULT 'USD',
+      tokens bigint,
+      features jsonb,
+      note text,
+      highlighted boolean NOT NULL DEFAULT false,
+      sort_order integer NOT NULL DEFAULT 0,
+      status text NOT NULL DEFAULT 'active',
+      created_at timestamp NOT NULL DEFAULT now(),
+      updated_at timestamp NOT NULL DEFAULT now()
+    )
+  `)
+  await db.execute(sql.raw(`
+    INSERT INTO price (id, type, name, tier, price, currency, tokens, features, note, highlighted, sort_order, status) VALUES
+      ('price_plan_free',      'plan',  'Free',         'free',        0,  'USD', NULL,        '["50 MB Storage","AI Capacity (≈ 50k tokens)","OCR 50 pages"]', 'Start free, upgrade anytime',     false, 1, 'active'),
+      ('price_plan_pro',       'plan',  'Pro',          'pro',         5,  'USD', NULL,        '["1 GB Storage","AI Capacity (≈ 5M tokens)","AI Chat","OCR","AI Summary","AI Translation"]', 'For professionals', false, 2, 'active'),
+      ('price_plan_business',  'plan',  'Business',     'business',   45,  'USD', NULL,        '["Everything in Pro, plus:","20 GB Storage","AI Capacity (≈ 50M tokens)","AI Website Widget","Multiple AI Assistants","Team Workspace","API Access","Priority AI Processing"]', 'For small teams', true, 3, 'active'),
+      ('price_plan_enterprise','plan',  'Enterprise',   'enterprise',  9,  'USD', NULL,        '["Everything in Business, plus:","Private AI Deployment","On-Premise","SSO","White Label","Dedicated Success Manager","SLA 99.9%"]', 'For large organizations', false, 4, 'active'),
+      ('price_topup_10m',      'topup', '10M Tokens',   NULL,          5,  'USD', 10000000,   NULL, 'Expires 1 month from purchase', false, 5, 'active'),
+      ('price_topup_25m',      'topup', '25M Tokens',   NULL,          9,  'USD', 25000000,   NULL, 'Expires 1 month from purchase', false, 6, 'active'),
+      ('price_topup_50m',      'topup', '50M Tokens',   NULL,         19,  'USD', 50000000,   NULL, 'Expires 1 month from purchase', false, 7, 'active'),
+      ('price_topup_100m',     'topup', '100M Tokens',  NULL,         65,  'USD', 100000000,  NULL, 'Expires 1 month from purchase', false, 8, 'active')
+    ON CONFLICT (id) DO NOTHING
+  `))
+
   console.log('[db:setup] person schema + vector tables ready')
   await pool.end()
 }
