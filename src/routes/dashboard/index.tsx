@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { signOut } from '../../lib/auth-client'
-import { initials } from '../dashboard'
+import { useEffect, useState } from 'react'
+import { createFileRoute } from '@tanstack/react-router'
 import { Route as DashboardRoute } from '../dashboard'
-import { useTheme } from '../../components/DashboardSidebar'
+import { WorkspaceSwitcher } from '../../components/WorkspaceSwitcher'
+import { ThemeToggle } from '../../components/ThemeToggle'
+import { UserMenu } from '../../components/UserMenu'
+import { getDashboardUsage, type DashboardUsage } from '../../server/functions/usage'
+import { useWorkspaceState } from '../../lib/workspace-state'
 
 export const Route = createFileRoute('/dashboard/')({
   component: DashboardHome,
@@ -12,96 +14,17 @@ export const Route = createFileRoute('/dashboard/')({
   }),
 })
 
-function UserMenu({ user }: { user: { name?: string; email?: string } }) {
-  const [open, setOpen] = useState(false)
-  const navigate = useNavigate()
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [open])
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="grid h-10 w-10 place-items-center rounded-xl bg-[var(--card-bg)] transition-all hover:bg-[var(--muted)]"
-      >
-        <div className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 text-xs font-bold text-white">
-          {initials(user.name)}
-        </div>
-      </button>
-
-      {open && (
-        <div className="absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card-bg)] shadow-lg">
-          <div className="border-b border-[var(--border)] px-3.5 py-3">
-            <div className="truncate text-sm font-bold text-[var(--fg)]">{user.name}</div>
-            <div className="truncate text-xs text-[var(--mutfg)]">{user.email}</div>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setOpen(false)
-              navigate({ to: '/dashboard/profile' })
-            }}
-            className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm font-semibold text-[var(--fg)] hover:bg-[var(--muted)]"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
-            Profile
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              signOut({
-                fetchOptions: {
-                  onSuccess: () => navigate({ to: '/login' }),
-                },
-              })
-            }
-            className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm font-semibold text-rose-600 hover:bg-rose-500/10"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
-            </svg>
-            Sign Out
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
 
 export function DashboardHeader() {
   const { session } = DashboardRoute.useRouteContext()
   const user = session.user
-  const [dark, toggleDark] = useTheme()
 
   return (
-    <header className="sticky top-0 z-30 border-b border-[var(--border)] bg-[var(--surface)] backdrop-blur-xl">
-      <div className="flex h-16 items-center justify-end gap-4 px-6">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={toggleDark}
-            className="rounded-lg p-2 text-[var(--mutfg)] hover:bg-[var(--muted)] hover:text-[var(--fg)]"
-            title={dark ? 'Light mode' : 'Dark mode'}
-          >
-            {dark ? (
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-            ) : (
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
-            )}
-          </button>
+    <header className="border-b border-[var(--border)] bg-[var(--surface)] backdrop-blur-xl md:sticky md:top-0 md:z-30">
+      <div className="flex h-16 items-center justify-between gap-4 px-6">
+        <WorkspaceSwitcher />
+        <div className="hidden items-center gap-2 md:flex">
+          <ThemeToggle />
           <UserMenu user={user} />
         </div>
       </div>
@@ -169,23 +92,39 @@ function ActivityItem({
 
 function DashboardHome() {
   const { session } = DashboardRoute.useRouteContext()
-  const usage = DashboardRoute.useLoaderData()
+  const initialUsage = DashboardRoute.useLoaderData()
+  const [usage, setUsage] = useState<DashboardUsage | null>(initialUsage)
+  const { workspaceId } = useWorkspaceState()
   const user = session.user
 
-  const storageUsed = usage?.storageUsedMb ?? 0
-  const storageTotal = usage?.storageTotalMb ?? 150
-  const storagePct = usage?.storagePct ?? 0
-  const tokenUsed = usage?.tokenUsed ?? 0
-  const tokenTotal = usage?.tokenTotal ?? 0
-  const tokenPct = usage?.tokenPct ?? 0
-  const topupTotal = usage?.topupTotal ?? 0
-  const topupUsed = usage?.topupUsed ?? 0
+  useEffect(() => {
+    let active = true
+    getDashboardUsage({ data: { workspaceId: workspaceId ?? undefined } })
+      .then((u) => {
+        if (active) setUsage(u)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [workspaceId])
+
+  const current = usage ?? initialUsage
+
+  const storageUsed = current?.storageUsedMb ?? 0
+  const storageTotal = current?.storageTotalMb ?? 150
+  const storagePct = current?.storagePct ?? 0
+  const tokenUsed = current?.tokenUsed ?? 0
+  const tokenTotal = current?.tokenTotal ?? 0
+  const tokenPct = current?.tokenPct ?? 0
+  const topupTotal = current?.topupTotal ?? 0
+  const topupUsed = current?.topupUsed ?? 0
   const topupPct = topupTotal > 0 ? Math.min(100, Math.round((topupUsed / topupTotal) * 100)) : 0
-  const documentCount = usage?.documentCount ?? 0
-  const chatCount = usage?.chatCount ?? 0
-  const recentDocuments = usage?.recentDocuments ?? []
-  const chatTrend = usage?.chatTrend ?? []
-  const tier = usage?.tier ?? 'free'
+  const documentCount = current?.documentCount ?? 0
+  const chatCount = current?.chatCount ?? 0
+  const recentDocuments = current?.recentDocuments ?? []
+  const chatTrend = current?.chatTrend ?? []
+  const tier = current?.tier ?? 'free'
 
   const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1) + ' Plan'
 

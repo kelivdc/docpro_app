@@ -44,6 +44,7 @@ async function main() {
     CREATE TABLE IF NOT EXISTS chat_sessions (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id text NOT NULL,
+      workspace_id text,
       title text NOT NULL DEFAULT 'New Chat',
       document_ids text[],
       created_at timestamp NOT NULL DEFAULT now(),
@@ -124,6 +125,108 @@ async function main() {
     )
   `)
 
+  // ---- Workspace support (AD-WS-2/3/4/5) ----
+  // Idempotent: add workspace_id columns, backfill to a default workspace per
+  // owner, then swap unique constraints & enforce NOT NULL.
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS person.workspaces (
+      id text PRIMARY KEY,
+      owner_id text NOT NULL,
+      name text NOT NULL,
+      description text,
+      icon text NOT NULL DEFAULT '📁',
+      color text NOT NULL DEFAULT '#2563EB',
+      is_default boolean NOT NULL DEFAULT false,
+      created_at timestamp NOT NULL DEFAULT now(),
+      updated_at timestamp NOT NULL DEFAULT now(),
+      CONSTRAINT workspaces_owner_name_unique UNIQUE (owner_id, name)
+    )
+  `)
+  await db.execute(
+    sql`ALTER TABLE person.documents ADD COLUMN IF NOT EXISTS workspace_id text`,
+  )
+  await db.execute(
+    sql`ALTER TABLE person.chunks ADD COLUMN IF NOT EXISTS workspace_id text`,
+  )
+  await db.execute(
+    sql`ALTER TABLE person.categories ADD COLUMN IF NOT EXISTS workspace_id text`,
+  )
+  await db.execute(
+    sql`CREATE UNIQUE INDEX IF NOT EXISTS workspaces_one_default_idx ON person.workspaces (owner_id) WHERE is_default`,
+  )
+  await db.execute(
+    sql`UPDATE person.workspaces SET icon = '🏛' WHERE icon = '📁'`,
+  )
+
+  // Backfill: ensure one default workspace per owner that owns data, then point
+  // all rows with NULL workspace_id at it. Idempotent via ON CONFLICT DO NOTHING.
+  // chat_sessions is a public-schema table; its owner column is user_id.
+  await db.execute(sql.raw(`
+    INSERT INTO person.workspaces (id, owner_id, name, is_default)
+    SELECT gen_random_uuid()::text, o.owner_id, 'My Workspace', true
+    FROM (
+      SELECT owner_id FROM person.documents WHERE workspace_id IS NULL
+      UNION
+      SELECT owner_id FROM person.categories WHERE workspace_id IS NULL
+      UNION
+      SELECT owner_id FROM person.chunks WHERE workspace_id IS NULL
+      UNION
+      SELECT user_id AS owner_id FROM chat_sessions WHERE workspace_id IS NULL
+    ) o
+    ON CONFLICT DO NOTHING
+  `))
+  await db.execute(sql.raw(`
+    UPDATE person.documents d
+    SET workspace_id = w.id
+    FROM person.workspaces w
+    WHERE d.workspace_id IS NULL AND w.owner_id = d.owner_id AND w.is_default = true
+  `))
+  await db.execute(sql.raw(`
+    UPDATE person.chunks c
+    SET workspace_id = w.id
+    FROM person.workspaces w
+    WHERE c.workspace_id IS NULL AND w.owner_id = c.owner_id AND w.is_default = true
+  `))
+  await db.execute(sql.raw(`
+    UPDATE person.categories c
+    SET workspace_id = w.id
+    FROM person.workspaces w
+    WHERE c.workspace_id IS NULL AND w.owner_id = c.owner_id AND w.is_default = true
+  `))
+  await db.execute(sql.raw(`
+    UPDATE chat_sessions cs
+    SET workspace_id = w.id
+    FROM person.workspaces w
+    WHERE cs.workspace_id IS NULL AND w.owner_id = cs.user_id AND w.is_default = true
+  `))
+  await db.execute(sql.raw(`
+    UPDATE person.workspaces SET name = 'My Workspace' WHERE is_default = true AND name = 'Default'
+  `))
+
+  // Swap category uniqueness: drop the global unique, add per-workspace unique.
+  // Drizzle's `name text UNIQUE` auto-names it `categories_name_key`; older
+  // manifest-based setups used `categories_name_unique` — drop both defensively.
+  await db.execute(
+    sql`ALTER TABLE person.categories DROP CONSTRAINT IF EXISTS categories_name_unique`,
+  )
+  await db.execute(
+    sql`ALTER TABLE person.categories DROP CONSTRAINT IF EXISTS categories_name_key`,
+  )
+  await db.execute(
+    sql`CREATE UNIQUE INDEX IF NOT EXISTS categories_workspace_name_idx ON person.categories (workspace_id, name)`,
+  )
+
+  // Enforce NOT NULL once backfilled.
+  await db.execute(
+    sql`ALTER TABLE person.documents ALTER COLUMN workspace_id SET NOT NULL`,
+  )
+  await db.execute(
+    sql`ALTER TABLE person.chunks ALTER COLUMN workspace_id SET NOT NULL`,
+  )
+  await db.execute(
+    sql`ALTER TABLE person.categories ALTER COLUMN workspace_id SET NOT NULL`,
+  )
+
   // Evolve chunks + documents with Document Intelligence metadata (idempotent).
   const chunkCols = [
     'filename text',
@@ -155,6 +258,9 @@ async function main() {
   // Ensure chat_sessions has document_ids (added after initial migration)
   await db.execute(sql.raw(`ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS document_ids text[]`))
   await db.execute(sql.raw(`ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS cost jsonb`))
+
+  // AD-WS: workspace-scoped chat sessions — each session belongs to one workspace.
+  await db.execute(sql.raw(`ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS workspace_id text`))
 
   // Soft-delete support
   await db.execute(sql.raw(`ALTER TABLE tenant_map ADD COLUMN IF NOT EXISTS deleted_at timestamptz`))

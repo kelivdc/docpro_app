@@ -47,6 +47,7 @@ export class QdrantVectorStore implements VectorStore {
   }
 
   async upsert(
+    workspaceId: string,
     chunks: Array<IntelligentChunk & { embedding: number[] }>,
   ): Promise<void> {
     if (chunks.length === 0) return
@@ -58,6 +59,7 @@ export class QdrantVectorStore implements VectorStore {
       payload: {
         document_id: c.documentId,
         owner_id: c.ownerId,
+        workspace_id: workspaceId,
         filename: c.filename,
         page: c.page ?? null,
         title: c.title ?? null,
@@ -86,7 +88,7 @@ export class QdrantVectorStore implements VectorStore {
   }
 
   async query(
-    ownerId: string,
+    ctx: { ownerId: string; workspaceId: string },
     embedding: number[],
     opts?: {
       limit?: number
@@ -100,7 +102,10 @@ export class QdrantVectorStore implements VectorStore {
     },
   ): Promise<QueryHit[]> {
     const limit = opts?.limit ?? 6
-    const must: unknown[] = [{ key: 'owner_id', match: { value: ownerId } }]
+    const must: unknown[] = [
+      { key: 'owner_id', match: { value: ctx.ownerId } },
+      { key: 'workspace_id', match: { value: ctx.workspaceId } },
+    ]
     if (opts?.category) must.push({ key: 'category', match: { value: opts.category } })
     if (opts?.path) must.push({ key: 'path', match: { value: opts.path } })
     if (opts?.focusDocIds?.length)
@@ -136,6 +141,10 @@ export class QdrantVectorStore implements VectorStore {
         with_payload: true,
         limit: 100,
         filter: {
+          must: [
+            { key: 'owner_id', match: { value: ctx.ownerId } },
+            { key: 'workspace_id', match: { value: ctx.workspaceId } },
+          ],
           should: [
             ...parentIds.map((id) => ({ key: 'parent', match: { value: id } })),
             ...docIds.map((id) => ({ key: 'document_id', match: { value: id } })),
@@ -157,12 +166,31 @@ export class QdrantVectorStore implements VectorStore {
     return expanded
   }
 
-  async deleteByDocument(documentId: string): Promise<void> {
+  async deleteByDocument(workspaceId: string, documentId: string): Promise<void> {
     await fetch(this.url(`/collections/${this.collection}/points/delete`), {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({
-        points_selector: { filter: { must: [{ key: 'document_id', match: { value: documentId } }] } },
+        points_selector: {
+          filter: {
+            must: [
+              { key: 'workspace_id', match: { value: workspaceId } },
+              { key: 'document_id', match: { value: documentId } },
+            ],
+          },
+        },
+      }),
+    })
+  }
+
+  async deleteByWorkspace(workspaceId: string): Promise<void> {
+    await fetch(this.url(`/collections/${this.collection}/points/delete`), {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({
+        points_selector: {
+          filter: { must: [{ key: 'workspace_id', match: { value: workspaceId } }] },
+        },
       }),
     })
   }

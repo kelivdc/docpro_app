@@ -2,6 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { auth } from '../../lib/auth'
 import { getRequest } from '@tanstack/react-start/server'
 import { getTenantContext, getMonthlyTokenUsage } from '../tenant'
+import { getOrCreateDefaultWorkspace } from '../workspace-service'
 import { db } from '../../lib/db'
 import { documents } from '../../lib/schema/documents'
 import { chatSessions } from '../../lib/schema/chat'
@@ -49,49 +50,61 @@ export interface DashboardUsage {
   deletionScheduled: boolean
 }
 
-export const getDashboardUsage = createServerFn({ method: 'GET' }).handler(async (): Promise<DashboardUsage> => {
-  const userId = await currentUserId()
-  const ctx = await getTenantContext(userId)
+export const getDashboardUsage = createServerFn({ method: 'GET' })
+  .validator((data: unknown) => {
+    const d = data as { workspaceId?: string }
+    return { workspaceId: d?.workspaceId }
+  })
+  .handler(async ({ data }): Promise<DashboardUsage> => {
+    const userId = await currentUserId()
+    const ctx = await getTenantContext(userId)
+    const workspaceId = data.workspaceId ?? (await getOrCreateDefaultWorkspace(userId)).id
 
-  // Storage: sum of sizeBytes from user's documents
-  const sum = await db
-    .select({ total: sql<number>`COALESCE(SUM(${documents.sizeBytes}), 0)` })
-    .from(documents)
-    .where(eq(documents.ownerId, userId))
-  const storageUsedBytes = sum[0]?.total ?? 0
+    // Storage: sum of sizeBytes from user's documents in this workspace
+    const sum = await db
+      .select({ total: sql<number>`COALESCE(SUM(${documents.sizeBytes}), 0)` })
+      .from(documents)
+      .where(and(eq(documents.ownerId, userId), eq(documents.workspaceId, workspaceId)))
+    const storageUsedBytes = sum[0]?.total ?? 0
 
-  // Token usage
-  const tokenUsed = await getMonthlyTokenUsage(userId)
+    // Token usage
+    const tokenUsed = await getMonthlyTokenUsage(userId)
 
-  // Document count
-  const docCountRow = await db
-    .select({ count: sql<number>`COUNT(*)` })
-    .from(documents)
-    .where(eq(documents.ownerId, userId))
-  const documentCount = Number(docCountRow[0]?.count ?? 0)
+    // Document count
+    const docCountRow = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(documents)
+      .where(and(eq(documents.ownerId, userId), eq(documents.workspaceId, workspaceId)))
+    const documentCount = Number(docCountRow[0]?.count ?? 0)
 
-  // Chat session count (last 30 days)
-  const thirtyDaysAgo = new Date()
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-  const chatCountRow = await db
-    .select({ count: sql<number>`COUNT(*)` })
-    .from(chatSessions)
-    .where(and(eq(chatSessions.userId, userId), gte(chatSessions.createdAt, thirtyDaysAgo)))
-  const chatCount = Number(chatCountRow[0]?.count ?? 0)
+    // Chat session count (last 30 days), scoped to workspace
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    const chatCountRow = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(chatSessions)
+      .where(
+        and(
+          eq(chatSessions.userId, userId),
+          eq(chatSessions.workspaceId, workspaceId),
+          gte(chatSessions.createdAt, thirtyDaysAgo),
+        ),
+      )
+    const chatCount = Number(chatCountRow[0]?.count ?? 0)
 
-  // Recent documents (last 5)
-  const recentRows = await db
-    .select({
-      id: documents.id,
-      name: documents.name,
-      status: documents.status,
-      sourceType: documents.sourceType,
-      createdAt: documents.createdAt,
-    })
-    .from(documents)
-    .where(eq(documents.ownerId, userId))
-    .orderBy(desc(documents.createdAt))
-    .limit(5)
+    // Recent documents (last 5, scoped to workspace)
+    const recentRows = await db
+      .select({
+        id: documents.id,
+        name: documents.name,
+        status: documents.status,
+        sourceType: documents.sourceType,
+        createdAt: documents.createdAt,
+      })
+      .from(documents)
+      .where(and(eq(documents.ownerId, userId), eq(documents.workspaceId, workspaceId)))
+      .orderBy(desc(documents.createdAt))
+      .limit(5)
   const recentDocuments: RecentDoc[] = recentRows.map((r) => ({
     id: r.id,
     name: r.name,
@@ -111,7 +124,13 @@ export const getDashboardUsage = createServerFn({ method: 'GET' }).handler(async
       count: sql<number>`COUNT(*)`,
     })
     .from(chatSessions)
-    .where(and(eq(chatSessions.userId, userId), gte(chatSessions.createdAt, sevenDaysAgo)))
+    .where(
+      and(
+        eq(chatSessions.userId, userId),
+        eq(chatSessions.workspaceId, workspaceId),
+        gte(chatSessions.createdAt, sevenDaysAgo),
+      ),
+    )
     .groupBy(sql`DATE(${chatSessions.createdAt})`)
 
   const trendMap = new Map<string, number>()

@@ -2,6 +2,9 @@ import { getVectorStore, getTenantContext, getMonthlyTokenUsage, incrementChatUs
 import { embed } from '../llm'
 import { getLlmProvider, type ChatMessage } from '../llm'
 import { chatConfig } from './chat-config'
+import { db } from '../../lib/db'
+import { documents } from '../../lib/schema/documents'
+import { and, eq, inArray } from 'drizzle-orm'
 
 // Retrieve more candidates than we keep (rerankTopK), rerank by similarity,
 // keep the top `topK` base chunks, then expand their parent/child units so the
@@ -10,6 +13,7 @@ import { chatConfig } from './chat-config'
 // threshold — used to decide "no relevant document" vs an irrelevant expansion.
 async function retrieveReranked(
   userId: string,
+  workspaceId: string,
   vector: number[],
   opts?: { category?: string; path?: string; documentIds?: string[] },
 ): Promise<{ hits: any[]; matched: boolean }> {
@@ -21,7 +25,7 @@ async function retrieveReranked(
   }
 
   // Phase 1: scout a wider net without expansion.
-  const scouted = await store.query(userId, vector, {
+  const scouted = await store.query({ ownerId: userId, workspaceId }, vector, {
     limit: chatConfig.rerankTopK,
     category: opts?.category,
     path: opts?.path,
@@ -43,7 +47,7 @@ async function retrieveReranked(
       .sort((a, b) => b.score - a.score)
       .slice(0, chatConfig.topK * 3)
     if (!chatConfig.parentRetrieval) return { hits: topBase, matched: true }
-    const expanded = await store.query(userId, vector, {
+    const expanded = await store.query({ ownerId: userId, workspaceId }, vector, {
       limit: chatConfig.topK,
       category: opts?.category,
       path: opts?.path,
@@ -82,7 +86,7 @@ async function retrieveReranked(
   // The vector store expands by parent_id (siblings + children of each base
   // chunk), keeping the context bounded to logical units (Pasal + ayat).
   if (!chatConfig.parentRetrieval) return { hits: topBase, matched: true }
-  const expanded = await store.query(userId, vector, {
+  const expanded = await store.query({ ownerId: userId, workspaceId }, vector, {
     limit: chatConfig.topK,
     category: opts?.category,
     path: opts?.path,
@@ -96,9 +100,6 @@ async function retrieveReranked(
   }
   return { hits: [...byId.values()].sort((a, b) => b.score - a.score), matched: true }
 }
-import { db } from '../../lib/db'
-import { documents } from '../../lib/schema/documents'
-import { inArray } from 'drizzle-orm'
 
 export interface Source {
   documentId: string
@@ -167,9 +168,10 @@ async function rewriteToStandalone(
 export async function answerQuestion(
   userId: string,
   question: string,
-  opts?: { category?: string; path?: string; limit?: number; history?: ChatTurn[]; documentIds?: string[] },
+  opts?: { workspaceId: string; category?: string; path?: string; limit?: number; history?: ChatTurn[]; documentIds?: string[] },
 ): Promise<ChatAnswer> {
   const ctx = await getTenantContext(userId)
+  if (!opts?.workspaceId) throw new Error('workspaceId wajib')
 
   // AD-12: enforce monthly token limit, with top-up overflow support
   const monthTokens = await getMonthlyTokenUsage(userId)
@@ -183,7 +185,7 @@ export async function answerQuestion(
     opts?.history && opts.history.length > 0 ? await rewriteToStandalone(userId, opts.history, question) : question
 
   const vector = await embed(effectiveQuestion)
-  const { hits, matched } = await retrieveReranked(userId, vector, opts)
+  const { hits, matched } = await retrieveReranked(userId, opts.workspaceId, vector, opts)
 
   if (!matched) {
     await incrementChatUsage(userId)
@@ -228,7 +230,9 @@ export async function answerQuestion(
     if (!cur || h.score > cur.hit.score) bestByDoc.set(h.documentId, { hit: h, docId: h.documentId })
   }
   const docIds = [...bestByDoc.keys()]
-  const docRows = await db.query.documents.findMany({ where: inArray(documents.id, docIds) })
+  const docRows = await db.query.documents.findMany({
+    where: and(inArray(documents.id, docIds), eq(documents.workspaceId, opts.workspaceId)),
+  })
   const byId = new Map(docRows.map((d) => [d.id, d]))
   const sources: Source[] = [...bestByDoc.values()]
     .sort((a, b) => b.hit.score - a.hit.score)
@@ -263,9 +267,10 @@ export async function continueAnswer(
   userId: string,
   question: string,
   priorAnswer: string,
-  opts?: { category?: string; path?: string; limit?: number; history?: ChatTurn[]; documentIds?: string[] },
+  opts?: { workspaceId: string; category?: string; path?: string; limit?: number; history?: ChatTurn[]; documentIds?: string[] },
 ): Promise<ChatAnswer> {
   const ctx = await getTenantContext(userId)
+  if (!opts?.workspaceId) throw new Error('workspaceId wajib')
   const monthTokens = await getMonthlyTokenUsage(userId)
   if (monthTokens >= ctx.limits.tokenPerMonth) {
     const topupAvailable = await getAvailableTopupBalance(userId)
@@ -275,7 +280,7 @@ export async function continueAnswer(
   const effectiveQuestion =
     opts?.history && opts.history.length > 0 ? await rewriteToStandalone(userId, opts.history, question) : question
   const vector = await embed(effectiveQuestion)
-  const { hits, matched } = await retrieveReranked(userId, vector, opts)
+  const { hits, matched } = await retrieveReranked(userId, opts.workspaceId, vector, opts)
   const context = (matched ? hits : []).map((h) => h.content.trim()).join('\n\n')
 
   const system: ChatMessage = {
@@ -310,7 +315,9 @@ export async function continueAnswer(
     if (!cur || h.score > cur.hit.score) bestByDoc.set(h.documentId, { hit: h, docId: h.documentId })
   }
   const docIds = [...bestByDoc.keys()]
-  const docRows = await db.query.documents.findMany({ where: inArray(documents.id, docIds) })
+  const docRows = await db.query.documents.findMany({
+    where: and(inArray(documents.id, docIds), eq(documents.workspaceId, opts.workspaceId)),
+  })
   const byId = new Map(docRows.map((d) => [d.id, d]))
   const sources: Source[] = [...bestByDoc.values()]
     .sort((a, b) => b.hit.score - a.hit.score)
@@ -343,9 +350,10 @@ export async function continueAnswer(
 export async function* streamAnswer(
   userId: string,
   question: string,
-  opts?: { category?: string; path?: string; limit?: number },
+  opts?: { workspaceId: string; category?: string; path?: string; limit?: number },
 ): AsyncGenerator<string, ChatAnswer, unknown> {
   const ctx = await getTenantContext(userId)
+  if (!opts?.workspaceId) throw new Error('workspaceId wajib')
   const monthTokens = await getMonthlyTokenUsage(userId)
   if (monthTokens >= ctx.limits.tokenPerMonth) {
     const topupAvailable = await getAvailableTopupBalance(userId)
@@ -353,7 +361,7 @@ export async function* streamAnswer(
   }
 
   const vector = await embed(question)
-  const { hits, matched } = await retrieveReranked(userId, vector, opts)
+  const { hits, matched } = await retrieveReranked(userId, opts.workspaceId, vector, opts)
 
   if (!matched) {
     await incrementChatUsage(userId)
@@ -399,7 +407,9 @@ export async function* streamAnswer(
     if (!cur || h.score > cur.hit.score) bestByDoc.set(h.documentId, { hit: h, docId: h.documentId })
   }
   const docIds = [...bestByDoc.keys()]
-  const docRows = await db.query.documents.findMany({ where: inArray(documents.id, docIds) })
+  const docRows = await db.query.documents.findMany({
+    where: and(inArray(documents.id, docIds), eq(documents.workspaceId, opts.workspaceId)),
+  })
   const byId = new Map(docRows.map((d) => [d.id, d]))
   const sources: Source[] = [...bestByDoc.values()]
     .sort((a, b) => b.hit.score - a.hit.score)

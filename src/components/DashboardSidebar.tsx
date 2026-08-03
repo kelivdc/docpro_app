@@ -14,14 +14,13 @@ export function initials(name?: string) {
 }
 
 export function useTheme() {
-  const [dark, setDark] = useState(false)
-  useEffect(() => {
-    setDark(document.documentElement.classList.contains('dark'))
-  }, [])
+  const [dark, setDark] = useState<boolean>(() =>
+    typeof document !== 'undefined' && document.documentElement.classList.contains('dark'),
+  )
   useEffect(() => {
     const cls = document.documentElement.classList
-    if (dark) { cls.add('dark'); localStorage.setItem('docpro-theme', 'dark') }
-    else { cls.remove('dark'); localStorage.setItem('docpro-theme', 'light') }
+    cls.toggle('dark', dark)
+    localStorage.setItem('docpro-theme', dark ? 'dark' : 'light')
   }, [dark])
   return [dark, () => setDark((v) => !v)] as const
 }
@@ -102,6 +101,7 @@ const NAV_ITEMS: { to: string; label: string; end?: boolean; icon: React.ReactNo
 
 export function DashboardSidebar({ onClose }: { onClose?: () => void }) {
   const { collapsed, toggle } = useSidebarState()
+
   return (
     <aside
       className={`relative flex h-screen shrink-0 flex-col border-r border-[var(--border)] bg-[var(--surface)] backdrop-blur-xl transition-all duration-200 ${

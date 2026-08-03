@@ -24,9 +24,24 @@ export const vector = customType<{ data: number[]; driverData: string }>({
 // Dedicated schemas for Business/Enterprise reuse the same shape via raw SQL.
 export const person = pgSchema('person')
 
+// AD-WS-2: Workspace is the top-level content scope inside a tenant schema.
+// One default workspace per owner (partial unique index enforced in setup-tenant).
+export const workspaces = person.table('workspaces', {
+  id: text('id').primaryKey(),
+  ownerId: text('owner_id').notNull(),
+  name: text('name').notNull(),
+  description: text('description'),
+  icon: text('icon').notNull().default('🏛'),
+  color: text('color').notNull().default('#2563EB'),
+  isDefault: boolean('is_default').notNull().default(false),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+})
+
 export const documents = person.table('documents', {
   id: text('id').primaryKey(),
   ownerId: text('owner_id').notNull(),
+  workspaceId: text('workspace_id'),
   name: text('name').notNull(),
   category: text('category'),
   note: text('note'),
@@ -52,6 +67,7 @@ export const chunks = person.table('chunks', {
   id: text('id').primaryKey(),
   documentId: text('document_id').notNull(),
   ownerId: text('owner_id').notNull(),
+  workspaceId: text('workspace_id'),
   filename: text('filename'),
   chunkIndex: integer('chunk_index').notNull().default(0),
   content: text('content').notNull(),
@@ -76,7 +92,8 @@ export const chunks = person.table('chunks', {
 export const categories = person.table('categories', {
   id: text('id').primaryKey(),
   ownerId: text('owner_id').notNull(),
-  name: text('name').notNull().unique(),
+  workspaceId: text('workspace_id'),
+  name: text('name').notNull(),
   description: text('description'),
   icon: text('icon').notNull().default('📁'),
   color: text('color').notNull().default('#2563EB'),

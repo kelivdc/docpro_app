@@ -16,6 +16,7 @@ function currentUserId(): Promise<string> {
 
 export interface ChatPayload {
   question: string
+  workspaceId: string
   category?: string
   path?: string
   history?: { role: 'user' | 'assistant'; content: string }[]
@@ -43,6 +44,7 @@ export const chatAsk = createServerFn({ method: 'POST' })
   .validator((data: unknown) => {
     const d = data as ChatPayload
     if (!d?.question || d.question.trim().length === 0) throw new Error('Pertanyaan kosong')
+    if (!d?.workspaceId) throw new Error('workspaceId wajib')
     if (d.question.length > 2000) throw new Error('Pertanyaan terlalu panjang (maks 2000 karakter)')
     return d
   })
@@ -50,6 +52,7 @@ export const chatAsk = createServerFn({ method: 'POST' })
     const userId = await currentUserId()
     try {
       const res = await answerQuestion(userId, data.question, {
+        workspaceId: data.workspaceId,
         category: data.category,
         path: data.path,
         history: data.history,
@@ -79,12 +82,14 @@ export const chatContinue = createServerFn({ method: 'POST' })
     const d = data as {
       question: string
       priorAnswer: string
+      workspaceId: string
       category?: string
       path?: string
       history?: { role: 'user' | 'assistant'; content: string }[]
       documentIds?: string[]
     }
     if (!d?.question || !d?.priorAnswer) throw new Error('Pertanyaan dan jawaban sebelumnya diperlukan')
+    if (!d?.workspaceId) throw new Error('workspaceId wajib')
     if (d.question.length > 2000) throw new Error('Pertanyaan terlalu panjang (maks 2000 karakter)')
     return d
   })
@@ -92,6 +97,7 @@ export const chatContinue = createServerFn({ method: 'POST' })
     const userId = await currentUserId()
     try {
       const res = await continueAnswer(userId, data.question, data.priorAnswer, {
+        workspaceId: data.workspaceId,
         category: data.category,
         path: data.path,
         history: data.history,

@@ -23,9 +23,9 @@ export interface ChunkRecord {
 }
 
 export interface VectorStore {
-  upsert(chunks: Array<IntelligentChunk & { embedding: number[] }>): Promise<void>
+  upsert(workspaceId: string, chunks: Array<IntelligentChunk & { embedding: number[] }>): Promise<void>
   query(
-    ownerId: string,
+    ctx: { ownerId: string; workspaceId: string },
     embedding: number[],
     opts?: {
       limit?: number
@@ -40,7 +40,8 @@ export interface VectorStore {
       focusParentIds?: string[]
     },
   ): Promise<QueryHit[]>
-  deleteByDocument(documentId: string): Promise<void>
+  deleteByDocument(workspaceId: string, documentId: string): Promise<void>
+  deleteByWorkspace(workspaceId: string): Promise<void>
 }
 
 // AD-4 / AD-8: pgvector-backed store inside the tenant schema.
@@ -57,6 +58,7 @@ export class PgVectorStore implements VectorStore {
   }
 
   async upsert(
+    workspaceId: string,
     chunks: Array<IntelligentChunk & { embedding: number[] }>,
   ): Promise<void> {
     if (chunks.length === 0) return
@@ -64,14 +66,15 @@ export class PgVectorStore implements VectorStore {
     const values: unknown[] = []
     const lines: string[] = []
     chunks.forEach((c, i) => {
-      const base = i * 18
+      const base = i * 19
       lines.push(
-        `($${base + 1},$${base + 2},$${base + 3},$${base + 4},$${base + 5},$${base + 6},$${base + 7},$${base + 8},$${base + 9},$${base + 10},$${base + 11},$${base + 12},$${base + 13},$${base + 14},$${base + 15},$${base + 16},$${base + 17},$${base + 18})`,
+        `($${base + 1},$${base + 2},$${base + 3},$${base + 4},$${base + 5},$${base + 6},$${base + 7},$${base + 8},$${base + 9},$${base + 10},$${base + 11},$${base + 12},$${base + 13},$${base + 14},$${base + 15},$${base + 16},$${base + 17},$${base + 18},$${base + 19})`,
       )
       values.push(
         c.id,
         c.documentId,
         c.ownerId,
+        workspaceId,
         c.filename ?? null,
         c.chunkIndex,
         c.content,
@@ -91,7 +94,7 @@ export class PgVectorStore implements VectorStore {
     })
     const sql = `
       INSERT INTO ${s}.chunks
-        (id, document_id, owner_id, filename, chunk_index, content, embedding, category, path,
+        (id, document_id, owner_id, workspace_id, filename, chunk_index, content, embedding, category, path,
          title, heading, sub_heading, section, subsection, parent_heading, parent_id, heading_path, language)
       VALUES ${lines.join(',')}
       ON CONFLICT (id) DO UPDATE SET
@@ -113,7 +116,7 @@ export class PgVectorStore implements VectorStore {
   }
 
   async query(
-    ownerId: string,
+    ctx: { ownerId: string; workspaceId: string },
     embedding: number[],
     opts?: {
       limit?: number
@@ -130,6 +133,7 @@ export class PgVectorStore implements VectorStore {
     const limit = opts?.limit ?? 6
     const conditions = [
       `c.owner_id = $1`,
+      `c.workspace_id = $2`,
       `c.embedding IS NOT NULL`,
       // Exclude hidden/expired chunks by default (FR-5.1 / AR-7)
       opts?.includeHidden ? `d.hidden = true OR d.hidden = false` : `d.hidden = false`,
@@ -137,7 +141,7 @@ export class PgVectorStore implements VectorStore {
         ? `(d.expired = true OR d.expired = false)`
         : `(d.expired = false AND (d.expired_at IS NULL OR d.expired_at > now()))`,
     ]
-    const params: unknown[] = [ownerId]
+    const params: unknown[] = [ctx.ownerId, ctx.workspaceId]
     if (opts?.category) {
       params.push(opts.category)
       conditions.push(`c.category = $${params.length}`)
@@ -182,7 +186,7 @@ export class PgVectorStore implements VectorStore {
       // are also pulled in.
       const unitIds = [...new Set([...parentIds, ...rows.map((r) => r.id)])]
       if (unitIds.length) {
-        const expParams: unknown[] = [ownerId, unitIds]
+        const expParams: unknown[] = [ctx.ownerId, ctx.workspaceId, unitIds]
         const expSql = `
           SELECT c.id, c.document_id, c.owner_id, c.filename, c.chunk_index, c.content, c.category, c.path,
                  c.title, c.heading, c.sub_heading, c.section, c.subsection, c.parent_heading,
@@ -190,7 +194,7 @@ export class PgVectorStore implements VectorStore {
                  0.999 AS score
           FROM ${s}.chunks c
           JOIN ${s}.documents d ON d.id = c.document_id
-          WHERE c.owner_id = $1 AND (
+          WHERE c.owner_id = $1 AND c.workspace_id = $2 AND (
             c.parent_id = ANY($${expParams.length}::text[])
             OR c.id = ANY($${expParams.length}::text[])
           )
@@ -209,9 +213,16 @@ export class PgVectorStore implements VectorStore {
     return rows
   }
 
-  async deleteByDocument(documentId: string): Promise<void> {
-    await this.pool.query(`DELETE FROM ${this.schemaName}.chunks WHERE document_id = $1`, [
-      documentId,
+  async deleteByDocument(workspaceId: string, documentId: string): Promise<void> {
+    await this.pool.query(
+      `DELETE FROM ${this.schemaName}.chunks WHERE document_id = $1 AND workspace_id = $2`,
+      [documentId, workspaceId],
+    )
+  }
+
+  async deleteByWorkspace(workspaceId: string): Promise<void> {
+    await this.pool.query(`DELETE FROM ${this.schemaName}.chunks WHERE workspace_id = $1`, [
+      workspaceId,
     ])
   }
 }

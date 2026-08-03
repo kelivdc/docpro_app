@@ -3,6 +3,7 @@ import { createFileRoute, useRouter, useNavigate, useSearch } from '@tanstack/re
 import { DashboardHeader } from './index'
 import { uploadDocument, updateDocument, getDocument, getDocumentContent } from '../../server/functions/upload'
 import { listCategories, createCategory } from '../../server/functions/categories'
+import { useWorkspaceState } from '../../lib/workspace-state'
 
 export const Route = createFileRoute('/dashboard/files')({
   component: FilesPage,
@@ -92,12 +93,13 @@ function FilesPage() {
   const [editId, setEditId] = useState<string | null>(null)
 
   const { edit } = useSearch({ from: Route.id })
+  const { workspaceId } = useWorkspaceState()
 
   useEffect(() => {
-    if (!edit) return
+    if (!edit || !workspaceId) return
     ;(async () => {
       try {
-        const doc: any = await getDocument({ data: { id: edit } })
+        const doc: any = await getDocument({ data: { id: edit, workspaceId } })
         setEditId(edit)
         setName(doc.name || '')
         setSourceType(doc.sourceType || 'document')
@@ -106,7 +108,7 @@ function FilesPage() {
         setPath(doc.path || '')
         setHidden(!!doc.hidden)
         if (doc.expiredAt) setExpiredAt(new Date(doc.expiredAt).toISOString().split('T')[0])
-        const { content } = await getDocumentContent({ data: { id: edit } })
+        const { content } = await getDocumentContent({ data: { id: edit, workspaceId } })
         if (content) {
           if (doc.sourceType === 'manual') setManualContent(content)
           else if (doc.sourceType === 'website') {
@@ -126,11 +128,12 @@ function FilesPage() {
   }, [edit])
 
   const loadCategories = useCallback(async () => {
+    if (!workspaceId) return
     try {
-      const res = await listCategories()
+      const res = await listCategories({ data: { workspaceId } })
       setCategories(res.categories as { name: string }[])
     } catch { /* ignore */ }
-  }, [])
+  }, [workspaceId])
 
   useEffect(() => {
     loadCategories()
@@ -138,9 +141,9 @@ function FilesPage() {
 
   const createNewCategory = async () => {
     const name = newCatName.trim()
-    if (!name) return
+    if (!name || !workspaceId) return
     try {
-      await createCategory({ data: { name } })
+      await createCategory({ data: { workspaceId, name } })
       setNewCatName('')
       setShowNewCat(false)
       await loadCategories()
@@ -199,6 +202,7 @@ function FilesPage() {
 
     let docName = name || file?.name || ''
     let payload: Record<string, any> = {
+      workspaceId,
       category: category || null,
       sourceType,
       note,
@@ -272,6 +276,7 @@ function FilesPage() {
       if (editId) {
         const upd: Record<string, any> = {
           id: editId,
+          workspaceId,
           name: docName,
           category: category || null,
           sourceType,

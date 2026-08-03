@@ -133,11 +133,11 @@ export async function incrementChatUsage(
 
 export async function getMonthlyTokenUsage(userId: string): Promise<number> {
   const month = utcMonth()
-  const row = await pool.query<{ total: number }>(
+  const row = await pool.query<{ total: string }>(
     `SELECT COALESCE(SUM(total_tokens), 0) AS total FROM usage WHERE user_id = $1 AND date = $2`,
     [userId, month],
   )
-  return row.rows[0]?.total ?? 0
+  return Number(row.rows[0]?.total ?? 0)
 }
 
 // Returns a vector store bound to the tenant's schema (AD-4).

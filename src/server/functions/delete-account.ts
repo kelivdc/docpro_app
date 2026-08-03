@@ -1,9 +1,10 @@
 import { createServerFn } from '@tanstack/react-start'
 import { auth } from '../../lib/auth'
 import { getRequest } from '@tanstack/react-start/server'
-import { db, pool } from '../../lib/db'
+import { db } from '../../lib/db'
 import { tenantMap } from '../../lib/schema/tenant'
 import { eq, lt } from 'drizzle-orm'
+import { purgeAccountData } from '../account-purge'
 
 async function currentUserId(): Promise<string> {
   const req = getRequest()
@@ -67,25 +68,10 @@ export const purgeDeletedAccounts = createServerFn({ method: 'POST' }).handler(a
     .where(lt(tenantMap.deletedAt, sevenDaysAgo))
 
   for (const row of pending) {
-    const { userId, schemaName } = row
-
-    await pool.query(`DELETE FROM person.chunks WHERE owner_id = $1`, [userId])
-    await pool.query(`DELETE FROM person.documents WHERE owner_id = $1`, [userId])
-    await pool.query(`DELETE FROM person.categories WHERE owner_id = $1`, [userId])
-
-    if (schemaName !== 'person') {
-      const safe = schemaName.replace(/[^a-z0-9_]/gi, '')
-      await pool.query(`DROP SCHEMA IF EXISTS "${safe}" CASCADE`)
-    }
-
-    await pool.query(`DELETE FROM chat_sessions WHERE user_id = $1`, [userId])
-    await pool.query(`DELETE FROM usage WHERE user_id = $1`, [userId])
-
-    await db
-      .update(tenantMap)
-      .set({ purgedAt: new Date() })
-      .where(eq(tenantMap.userId, userId))
+    await purgeAccountData(row.userId, row.schemaName)
   }
 
   return { purged: pending.length }
 })
+
+// AD-WS-7: purge runs server-side only — see src/server/account-purge.ts.

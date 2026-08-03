@@ -6,8 +6,11 @@ import { defaultStructureDetector } from './structure'
 import { smartChunk } from './chunking'
 import { scoreIntelligence } from './intelligence'
 import { getParser } from './parser-registry'
+import { getOrCreateDefaultWorkspace } from '../workspace-service'
 
 const TEST_USER = 'test-di-user-1'
+
+let wsId: string
 
 beforeAll(async () => {
   await pool.query(
@@ -16,11 +19,14 @@ beforeAll(async () => {
      ON CONFLICT (id) DO NOTHING`,
     [TEST_USER],
   )
+  await pool.query(`DELETE FROM person.workspaces WHERE owner_id = $1`, [TEST_USER])
+  wsId = (await getOrCreateDefaultWorkspace(TEST_USER)).id
   await pool.query(`DELETE FROM person.documents WHERE owner_id = $1`, [TEST_USER])
 })
 
 afterAll(async () => {
   await pool.query(`DELETE FROM person.documents WHERE owner_id = $1`, [TEST_USER]).catch(() => {})
+  await pool.query(`DELETE FROM person.workspaces WHERE owner_id = $1`, [TEST_USER]).catch(() => {})
   await pool.query(`DELETE FROM usage WHERE user_id = $1`, [TEST_USER]).catch(() => {})
   await pool.query(`DELETE FROM tenant_map WHERE user_id = $1`, [TEST_USER]).catch(() => {})
   await pool.query(`DELETE FROM "user" WHERE id = $1`, [TEST_USER]).catch(() => {})
@@ -74,6 +80,7 @@ describe('Document Intelligence Pipeline', () => {
   it('ingests legal doc, stores metadata + intelligence score, and groups structure', async () => {
     const res = await ingestDocument({
       ownerId: TEST_USER,
+      workspaceId: wsId,
       file: { name: 'uu.txt', mime: 'text/plain', size: LEGAL_DOC.length, buffer: Buffer.from(LEGAL_DOC) },
       category: 'Legal',
     })

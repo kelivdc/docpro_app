@@ -3,6 +3,7 @@ import { pgTable, text, timestamp, jsonb, uuid } from 'drizzle-orm/pg-core'
 export const chatSessions = pgTable('chat_sessions', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: text('user_id').notNull(),
+  workspaceId: text('workspace_id'),
   title: text('title').notNull().default('New Chat'),
   documentIds: text('document_ids').array(),
   createdAt: timestamp('created_at').notNull().defaultNow(),

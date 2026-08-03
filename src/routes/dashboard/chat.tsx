@@ -20,6 +20,7 @@ import {
 import { listDocuments } from '../../server/functions/upload'
 import { listCategories } from '../../server/functions/categories'
 import type { CategoryView } from '../../server/functions/categories'
+import { useWorkspaceState } from '../../lib/workspace-state'
 
 export const Route = createFileRoute('/dashboard/chat')({
   component: ChatPage,
@@ -83,6 +84,7 @@ const markdownComponents: Components = {
 
 function ChatPage() {
   const router = useRouter()
+  const { workspaceId } = useWorkspaceState()
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
@@ -97,6 +99,9 @@ function ChatPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   // When true, the speak loop aborts and any playing audio is paused.
   const cancelSpeakRef = useRef(false)
+  // Latest active session + workspace, captured for persistence on workspace switch.
+  const prevWsRef = useRef<string | null>(workspaceId)
+  const prevSessionRef = useRef<{ id: string; msgs: Msg[]; docIds?: string[] } | null>(null)
 
   // Document source selection
   const [documents, setDocuments] = useState<{ id: string; name: string; category: string | null; status: string }[]>([])
@@ -119,8 +124,8 @@ function ChatPage() {
   const loadSessionMessages = useCallback(async (sessionId: string) => {
     try {
       const [msgs, session] = await Promise.all([
-        getSessionMessages({ data: { id: sessionId } }) as Promise<MessageRow[]>,
-        getSession({ data: { id: sessionId } }),
+        getSessionMessages({ data: { id: sessionId, workspaceId: workspaceId ?? undefined } }) as Promise<MessageRow[]>,
+        getSession({ data: { id: sessionId, workspaceId: workspaceId ?? undefined } }),
       ])
       setMessages(msgs.map((m) => ({
         role: m.role,
@@ -135,13 +140,14 @@ function ChatPage() {
     } catch {
       // ignore
     }
-  }, [])
+  }, [workspaceId])
 
   const saveMessages = useCallback(async (sessionId: string, msgs: Msg[], docIds?: string[]) => {
     try {
       await saveSessionMessages({
         data: {
           sessionId,
+          workspaceId: workspaceId ?? undefined,
           messages: msgs.map((m) => ({
             role: m.role,
             content: m.content,
@@ -166,18 +172,56 @@ function ChatPage() {
     } catch {
       // ignore
     }
-  }, [])
+  }, [workspaceId])
 
-  // Initialize: load sessions, last session, and documents
+  // Initialize: load sessions, last session, and documents scoped to the active workspace.
+  // Re-runs on workspace switch, resetting in-memory chat state first.
+  // Persist the previous session's messages (with its own workspace) before reset.
   useEffect(() => {
+    if (!workspaceId) return
+    const prevWs = prevWsRef.current
+    const prevSession = prevSessionRef.current
+    if (prevWs && prevWs !== workspaceId && prevSession) {
+      const ws = prevWs
+      void (async () => {
+        try {
+          await saveSessionMessages({
+            data: {
+              sessionId: prevSession.id,
+              workspaceId: ws,
+              messages: prevSession.msgs.map((m) => ({
+                role: m.role,
+                content: m.content,
+                sources: m.sources,
+                cost: m.cost,
+              })),
+              documentIds: prevSession.docIds,
+            },
+          })
+        } catch {
+          // ignore
+        }
+      })()
+    }
+    prevWsRef.current = workspaceId
+    setMessages([])
+    setHistory([])
+    setSelectedDocIds([])
+    setCatFilter(null)
+    setCurrentSessionId(null)
+    setLoaded(false)
     ;(async () => {
-      const [all, docs, cats] = await Promise.all([listSessions(), listDocuments(), listCategories()])
+      const [all, docs, cats] = await Promise.all([
+        listSessions({ data: { workspaceId: workspaceId ?? undefined } }),
+        listDocuments({ data: { workspaceId } }),
+        listCategories({ data: { workspaceId } }),
+      ])
       setSessions(all)
       const readyDocs = docs.filter((d) => d.status === 'ready')
       setDocuments(readyDocs.map((d) => ({ id: d.id, name: d.name, category: d.category ?? null, status: d.status })))
       setCategories(cats.categories)
       if (all.length > 0) {
-        const last = await getLastSession()
+        const last = await getLastSession({ data: { workspaceId: workspaceId ?? undefined } })
         if (last) {
           setCurrentSessionId(last.id)
           await loadSessionMessages(last.id)
@@ -185,7 +229,7 @@ function ChatPage() {
       }
       setLoaded(true)
     })()
-  }, [])
+  }, [workspaceId])
 
   // Save messages and selectedDocIds to DB whenever they change (debounced)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -199,6 +243,19 @@ function ChatPage() {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     }
   }, [messages, currentSessionId, loaded, selectedDocIds, allSources])
+
+  // Mirror the live session into refs so a workspace switch can persist it with
+  // the correct (old) workspace id before the reset effect runs.
+  useEffect(() => {
+    prevWsRef.current = workspaceId
+    if (currentSessionId) {
+      prevSessionRef.current = {
+        id: currentSessionId,
+        msgs: messages,
+        docIds: allSources ? undefined : selectedDocIds,
+      }
+    }
+  }, [workspaceId, currentSessionId, messages, allSources, selectedDocIds])
 
   const switchSession = useCallback(async (sessionId: string) => {
     // Save current session first
@@ -214,13 +271,13 @@ function ChatPage() {
     if (currentSessionId) {
       await saveMessages(currentSessionId, messages, allSources ? undefined : selectedDocIds)
     }
-    const session = await createSession({ data: {} })
+    const session = await createSession({ data: { workspaceId: workspaceId ?? undefined } })
     setSessions((prev) => [session, ...prev])
     setCurrentSessionId(session.id)
     setMessages([])
     setHistory([])
     setSelectedDocIds([])
-  }, [currentSessionId, messages, saveMessages, selectedDocIds, allSources])
+  }, [currentSessionId, messages, saveMessages, selectedDocIds, allSources, workspaceId])
 
   const doDeleteSession = useCallback(async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -235,7 +292,7 @@ function ChatPage() {
     if (currentSessionId === id) {
       await saveMessages(id, messages, selectedDocIds).catch(() => {})
     }
-    await deleteSession({ data: { id } })
+    await deleteSession({ data: { id, workspaceId: workspaceId ?? undefined } })
     setSessions((prev) => prev.filter((s) => s.id !== id))
     if (currentSessionId === id) {
       const remaining = sessions.filter((s) => s.id !== id)
@@ -260,7 +317,7 @@ function ChatPage() {
       setEditingSessionId(null)
       return
     }
-    await renameSession({ data: { id, title } })
+    await renameSession({ data: { id, title, workspaceId: workspaceId ?? undefined } })
     setSessions((prev) => prev.map((s) => (s.id === id ? { ...s, title } : s)))
     setEditingSessionId(null)
   }, [editingTitle])
@@ -403,7 +460,7 @@ function ChatPage() {
     let sid = currentSessionId
     if (!sid) {
       const autoTitle = q.slice(0, 60) + (q.length > 60 ? '…' : '')
-      const session = await createSession({ data: { title: autoTitle } })
+      const session = await createSession({ data: { title: autoTitle, workspaceId: workspaceId ?? undefined } })
       sid = session.id
       setCurrentSessionId(sid)
       setSessions((prev) => [session, ...prev])
@@ -428,7 +485,7 @@ function ChatPage() {
       .map((m) => ({ role: m.role, content: m.content }))
     try {
       const docIds = allSources ? documents.map((d) => d.id) : (selectedDocIds.length > 0 ? selectedDocIds : [])
-      const res = await chatAsk({ data: { question: q, history, documentIds: docIds } }) as ChatResponse
+      const res = await chatAsk({ data: { question: q, workspaceId: workspaceId as string, history, documentIds: docIds } }) as ChatResponse
       let finalCost = res.cost
       const finalRaw = res.raw
 
@@ -460,7 +517,7 @@ function ChatPage() {
           return n
         })
         const cont = await chatContinue({
-          data: { question: q, priorAnswer: fullAnswer, history, documentIds: docIds },
+          data: { question: q, priorAnswer: fullAnswer, workspaceId: workspaceId as string, history, documentIds: docIds },
         }) as ChatResponse
         if (cont.limitHit) {
           fullAnswer += (fullAnswer.endsWith('\n') ? '' : '\n') + cont.answer

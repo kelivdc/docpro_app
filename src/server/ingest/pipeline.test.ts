@@ -6,9 +6,12 @@ import { parseDocument } from './parse'
 import { chunkText } from './chunk'
 import { deleteObject } from '../minio'
 import { getVectorStore } from '../tenant'
+import { getOrCreateDefaultWorkspace } from '../workspace-service'
 import { eq } from 'drizzle-orm'
 
 const TEST_USER = 'test-ingest-user-1'
+
+let wsId: string
 
 beforeAll(async () => {
   await pool.query(
@@ -17,11 +20,14 @@ beforeAll(async () => {
      ON CONFLICT (id) DO NOTHING`,
     [TEST_USER],
   )
+  await pool.query(`DELETE FROM person.workspaces WHERE owner_id = $1`, [TEST_USER])
+  wsId = (await getOrCreateDefaultWorkspace(TEST_USER)).id
   await pool.query(`DELETE FROM person.documents WHERE owner_id = $1`, [TEST_USER])
 })
 
 afterAll(async () => {
   await pool.query(`DELETE FROM person.documents WHERE owner_id = $1`, [TEST_USER]).catch(() => {})
+  await pool.query(`DELETE FROM person.workspaces WHERE owner_id = $1`, [TEST_USER]).catch(() => {})
   await pool.query(`DELETE FROM usage WHERE user_id = $1`, [TEST_USER]).catch(() => {})
   await pool.query(`DELETE FROM tenant_map WHERE user_id = $1`, [TEST_USER]).catch(() => {})
   await pool.query(`DELETE FROM "user" WHERE id = $1`, [TEST_USER]).catch(() => {})
@@ -31,6 +37,7 @@ afterAll(async () => {
 async function ingest(text: string, opts: Partial<Parameters<typeof ingestDocument>[0]> = {}) {
   const res = await ingestDocument({
     ownerId: TEST_USER,
+    workspaceId: wsId,
     file: { name: 'doc.txt', mime: 'text/plain', size: text.length, buffer: Buffer.from(text) },
     ...opts,
   })
@@ -81,7 +88,7 @@ describe('Story 1.3 — path manual as source', () => {
   it('stores path per document and chunk is filterable by path', async () => {
     const res = await ingest('Dokumen dengan lokasi manual untuk filter.', { path: '/arsip/rahasia' })
     const store = await getVectorStore(TEST_USER)
-    const byPath = await store.query(TEST_USER, await embedTest('lokasi manual'), { path: '/arsip/rahasia' })
+    const byPath = await store.query({ ownerId: TEST_USER, workspaceId: wsId }, await embedTest('lokasi manual'), { path: '/arsip/rahasia' })
     expect(byPath.length).toBeGreaterThan(0)
     expect(byPath.every((c) => c.path === '/arsip/rahasia')).toBe(true)
     if (res.documentId) await deleteObject('docpro-person', `person/${TEST_USER}/${res.documentId}/doc.txt`).catch(() => {})
@@ -102,14 +109,14 @@ describe('Story 1.4 — expired/hidden excluded from retrieval', () => {
     })
 
     const store = await getVectorStore(TEST_USER)
-    const all = await store.query(TEST_USER, await embedTest('dokumen'), { limit: 20 })
+    const all = await store.query({ ownerId: TEST_USER, workspaceId: wsId }, await embedTest('dokumen'), { limit: 20 })
     const ids = all.map((c) => c.documentId)
     expect(ids).toContain(normal.documentId)
     expect(ids).not.toContain(expired.documentId)
     expect(ids).not.toContain(hidden.documentId)
 
     // include flags bypass the exclusion
-    const withExpired = await store.query(TEST_USER, await embedTest('dokumen'), {
+    const withExpired = await store.query({ ownerId: TEST_USER, workspaceId: wsId }, await embedTest('dokumen'), {
       limit: 20,
       includeExpired: true,
       includeHidden: true,

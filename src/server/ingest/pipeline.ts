@@ -14,6 +14,7 @@ import type { IntelligentChunk, IntelligenceScore } from './types'
 
 export interface IngestInput {
   ownerId: string
+  workspaceId: string
   file: { name: string; mime: string; size: number; buffer: Buffer }
   category?: string | null
   note?: string
@@ -79,6 +80,7 @@ export async function ingestDocument(input: IngestInput): Promise<IngestResult> 
       await db.insert(documents).values({
         id: documentId,
         ownerId: input.ownerId,
+        workspaceId: input.workspaceId,
         name: input.file.name,
         category: input.category ?? null,
         note,
@@ -149,7 +151,7 @@ export async function ingestDocument(input: IngestInput): Promise<IngestResult> 
     }))
 
     const store = await getVectorStore(input.ownerId)
-    await store.upsert(withEmbed)
+    await store.upsert(input.workspaceId, withEmbed)
 
     // 5. mark ready + persist intelligence score + structure
     await db

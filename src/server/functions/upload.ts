@@ -9,9 +9,13 @@ import { eq, desc } from 'drizzle-orm'
 import type { IntelligenceScore } from '../ingest/types'
 import { getTenantContext, getVectorStore } from '../tenant'
 import { deleteObject, getPresignedUrl } from '../minio'
+import { getOrCreateDefaultWorkspace } from '../workspace-service'
+import { categoryExists } from '../categories-service'
+import { and } from 'drizzle-orm'
 
 export interface UploadPayload {
   name: string
+  workspaceId?: string
   mime?: string
   size?: number
   base64?: string
@@ -74,8 +78,16 @@ export const uploadDocument = createServerFn({ method: 'POST' })
       }
     }
 
+    const workspaceId = await resolveWorkspace(ownerId, data.workspaceId)
+    // AD-WS-9: reject a category that is not a (workspaceId, name) row in the SAME workspace.
+    if (data.category) {
+      const exists = await categoryExists(ownerId, workspaceId, data.category)
+      if (!exists) throw new Error(`Kategori "${data.category}" tidak ada di workspace ini`)
+    }
+
     const result = await ingestDocument({
       ownerId,
+      workspaceId,
       file,
       category: data.category,
       note: data.note,
@@ -88,18 +100,25 @@ export const uploadDocument = createServerFn({ method: 'POST' })
     return result
   })
 
+// AD-WS-5: resolve the requested workspace or fall back to the owner's default.
+async function resolveWorkspace(ownerId: string, workspaceId?: string): Promise<string> {
+  if (workspaceId) return workspaceId
+  return (await getOrCreateDefaultWorkspace(ownerId)).id
+}
+
 export const getDocument = createServerFn({ method: 'GET' })
   .validator((data: unknown) => {
-    const d = data as { id: string }
+    const d = data as { id: string; workspaceId: string }
     if (!d?.id) throw new Error('ID dokumen diperlukan')
+    if (!d?.workspaceId) throw new Error('workspaceId wajib')
     return d
   })
   .handler(async ({ data }) => {
     const ownerId = await currentUserId()
     const doc = await db.query.documents.findFirst({
-      where: eq(documents.id, data.id),
+      where: and(eq(documents.id, data.id), eq(documents.ownerId, ownerId)),
     })
-    if (!doc || doc.ownerId !== ownerId) throw new Error('Dokumen tidak ditemukan')
+    if (!doc || doc.workspaceId !== data.workspaceId) throw new Error('Dokumen tidak ditemukan')
     return {
       ...doc,
       intelligenceScore: (doc.intelligenceScore ?? null) as any,
@@ -107,36 +126,43 @@ export const getDocument = createServerFn({ method: 'GET' })
     }
   })
 
-export const listDocuments = createServerFn({ method: 'GET' }).handler(async () => {
-  const ownerId = await currentUserId()
-  const rows = await db
-    .select()
-    .from(documents)
-    .where(eq(documents.ownerId, ownerId))
-    .orderBy(desc(documents.createdAt))
-  // jsonb columns deserialize as `unknown`; cast so the server fn result is serializable.
-  return rows.map((r) => ({
-    ...r,
-    intelligenceScore: (r.intelligenceScore ?? null) as IntelligenceScore | null,
-    structureJson: (r.structureJson ?? null) as any,
-  }))
-})
+export const listDocuments = createServerFn({ method: 'GET' })
+  .validator((data: unknown) => {
+    const d = data as { workspaceId: string }
+    if (!d?.workspaceId) throw new Error('workspaceId wajib')
+    return d
+  })
+  .handler(async ({ data }) => {
+    const ownerId = await currentUserId()
+    const rows = await db
+      .select()
+      .from(documents)
+      .where(and(eq(documents.ownerId, ownerId), eq(documents.workspaceId, data.workspaceId)))
+      .orderBy(desc(documents.createdAt))
+    // jsonb columns deserialize as `unknown`; cast so the server fn result is serializable.
+    return rows.map((r) => ({
+      ...r,
+      intelligenceScore: (r.intelligenceScore ?? null) as IntelligenceScore | null,
+      structureJson: (r.structureJson ?? null) as any,
+    }))
+  })
 
 // Hapus dokumen: baris documents + chunks (tenant schema) + objek MinIO.
 export const deleteDocument = createServerFn({ method: 'POST' })
   .validator((data: unknown) => {
-    const d = data as { id: string }
+    const d = data as { id: string; workspaceId: string }
     if (!d?.id) throw new Error('ID dokumen diperlukan')
+    if (!d?.workspaceId) throw new Error('workspaceId wajib')
     return d
   })
   .handler(async ({ data }) => {
     const ownerId = await currentUserId()
     const doc = await db.query.documents.findFirst({
-      where: eq(documents.id, data.id),
+      where: and(eq(documents.id, data.id), eq(documents.ownerId, ownerId)),
     })
-    if (!doc || doc.ownerId !== ownerId) throw new Error('Dokumen tidak ditemukan')
+    if (!doc || doc.workspaceId !== data.workspaceId) throw new Error('Dokumen tidak ditemukan')
 
-    await getVectorStore(ownerId).then((s) => s.deleteByDocument(data.id))
+    await getVectorStore(ownerId).then((s) => s.deleteByDocument(data.workspaceId, data.id))
     if (doc.objectKey) {
       const ctx = await getTenantContext(ownerId)
       await deleteObject(ctx.bucket, doc.objectKey).catch(() => {})
@@ -150,6 +176,7 @@ export const updateDocument = createServerFn({ method: 'POST' })
   .validator((data: unknown) => {
     const d = data as {
       id: string
+      workspaceId: string
       category?: string | null
       sourceType?: string
       name?: string
@@ -158,30 +185,39 @@ export const updateDocument = createServerFn({ method: 'POST' })
       base64?: string
     }
     if (!d?.id) throw new Error('ID dokumen diperlukan')
+    if (!d?.workspaceId) throw new Error('workspaceId wajib')
     if (d.base64 && d.size && d.size > 150 * 1024 * 1024) throw new Error('Ukuran maksimal 150 MB')
     return d
   })
   .handler(async ({ data }) => {
     const ownerId = await currentUserId()
     const doc = await db.query.documents.findFirst({
-      where: eq(documents.id, data.id),
+      where: and(eq(documents.id, data.id), eq(documents.ownerId, ownerId)),
     })
-    if (!doc || doc.ownerId !== ownerId) throw new Error('Dokumen tidak ditemukan')
+    if (!doc || doc.workspaceId !== data.workspaceId) throw new Error('Dokumen tidak ditemukan')
+
+    // AD-WS-9: validate the new category belongs to this workspace before applying.
+    const nextCategory = data.category !== undefined ? data.category : doc.category
+    if (nextCategory) {
+      const exists = await categoryExists(ownerId, data.workspaceId, nextCategory)
+      if (!exists) throw new Error(`Kategori "${nextCategory}" tidak ada di workspace ini`)
+    }
 
     // If a new file is provided, re-ingest (delete old chunks/minio, upload new).
     if (data.base64) {
       const buffer = Buffer.from(data.base64, 'base64')
       // Remove old vector chunks
-      await getVectorStore(ownerId).then((s) => s.deleteByDocument(data.id))
+      await getVectorStore(ownerId).then((s) => s.deleteByDocument(data.workspaceId, data.id))
       // Remove old MinIO object
       const ctx = await getTenantContext(ownerId)
       if (doc.objectKey) {
         const { deleteObject } = await import('../minio')
         await deleteObject(ctx.bucket, doc.objectKey).catch(() => {})
       }
-      // Re-ingest with the same document ID
+      // Re-ingest with the same document ID (workspaceId is preserved — AD-WS-5)
       return ingestDocument({
         ownerId,
+        workspaceId: doc.workspaceId,
         file: { name: data.name ?? doc.name, mime: data.mime ?? 'application/octet-stream', size: data.size ?? buffer.length, buffer },
         category: data.category !== undefined ? data.category : doc.category,
         note: doc.note ?? undefined,
@@ -210,16 +246,17 @@ export const updateDocument = createServerFn({ method: 'POST' })
 // Toggle sembunyikan dokumen.
 export const toggleHiddenDocument = createServerFn({ method: 'POST' })
   .validator((data: unknown) => {
-    const d = data as { id: string; hidden: boolean }
+    const d = data as { id: string; workspaceId: string; hidden: boolean }
     if (!d?.id) throw new Error('ID dokumen diperlukan')
+    if (!d?.workspaceId) throw new Error('workspaceId wajib')
     return d
   })
   .handler(async ({ data }) => {
     const ownerId = await currentUserId()
     const doc = await db.query.documents.findFirst({
-      where: eq(documents.id, data.id),
+      where: and(eq(documents.id, data.id), eq(documents.ownerId, ownerId)),
     })
-    if (!doc || doc.ownerId !== ownerId) throw new Error('Dokumen tidak ditemukan')
+    if (!doc || doc.workspaceId !== data.workspaceId) throw new Error('Dokumen tidak ditemukan')
     await db
       .update(documents)
       .set({ hidden: data.hidden })
@@ -230,16 +267,17 @@ export const toggleHiddenDocument = createServerFn({ method: 'POST' })
 // Proses ulang dokumen yang sudah ada (ambil file dari MinIO, re-index dgn parser terbaru).
 export const reprocessDocument = createServerFn({ method: 'POST' })
   .validator((data: unknown) => {
-    const d = data as { id: string }
+    const d = data as { id: string; workspaceId: string }
     if (!d?.id) throw new Error('ID dokumen diperlukan')
+    if (!d?.workspaceId) throw new Error('workspaceId wajib')
     return d
   })
   .handler(async ({ data }) => {
     const ownerId = await currentUserId()
     const doc = await db.query.documents.findFirst({
-      where: eq(documents.id, data.id),
+      where: and(eq(documents.id, data.id), eq(documents.ownerId, ownerId)),
     })
-    if (!doc || doc.ownerId !== ownerId) throw new Error('Dokumen tidak ditemukan')
+    if (!doc || doc.workspaceId !== data.workspaceId) throw new Error('Dokumen tidak ditemukan')
     if (!doc.objectKey) throw new Error('Objek file tidak tersedia')
 
     // Ambil file dari MinIO (via getObject)
@@ -249,7 +287,7 @@ export const reprocessDocument = createServerFn({ method: 'POST' })
     if (!fileBuf) throw new Error('File tidak ditemukan di penyimpanan')
 
     // Hapus chunks lama
-    await getVectorStore(ownerId).then((s) => s.deleteByDocument(data.id))
+    await getVectorStore(ownerId).then((s) => s.deleteByDocument(data.workspaceId, data.id))
 
     // Reset status dokumen ke processing sebelum re-ingest
     await db.update(documents).set({ status: 'processing' }).where(eq(documents.id, data.id))
@@ -257,6 +295,7 @@ export const reprocessDocument = createServerFn({ method: 'POST' })
     // Re-ingest dengan documentId yang sama (parser terbaru akan dipakai)
     const result = await ingestDocument({
       ownerId,
+      workspaceId: doc.workspaceId,
       file: { name: doc.name, mime: doc.mime ?? 'application/pdf', size: fileBuf.length, buffer: fileBuf },
       category: doc.category,
       note: doc.note ?? undefined,
@@ -273,16 +312,17 @@ export const reprocessDocument = createServerFn({ method: 'POST' })
 // URL unduh sementara (presigned) untuk dokumen.
 export const downloadDocumentUrl = createServerFn({ method: 'POST' })
   .validator((data: unknown) => {
-    const d = data as { id: string }
+    const d = data as { id: string; workspaceId: string }
     if (!d?.id) throw new Error('ID dokumen diperlukan')
+    if (!d?.workspaceId) throw new Error('workspaceId wajib')
     return d
   })
   .handler(async ({ data }) => {
     const ownerId = await currentUserId()
     const doc = await db.query.documents.findFirst({
-      where: eq(documents.id, data.id),
+      where: and(eq(documents.id, data.id), eq(documents.ownerId, ownerId)),
     })
-    if (!doc || doc.ownerId !== ownerId) throw new Error('Dokumen tidak ditemukan')
+    if (!doc || doc.workspaceId !== data.workspaceId) throw new Error('Dokumen tidak ditemukan')
     if (!doc.objectKey) throw new Error('Objek tidak tersedia')
     const ctx = await getTenantContext(ownerId)
     const url = await getPresignedUrl(ctx.bucket, doc.objectKey, 60 * 10)
@@ -291,16 +331,17 @@ export const downloadDocumentUrl = createServerFn({ method: 'POST' })
 
 export const getDocumentContent = createServerFn({ method: 'GET' })
   .validator((data: unknown) => {
-    const d = data as { id: string }
+    const d = data as { id: string; workspaceId: string }
     if (!d?.id) throw new Error('ID dokumen diperlukan')
+    if (!d?.workspaceId) throw new Error('workspaceId wajib')
     return d
   })
   .handler(async ({ data }) => {
     const ownerId = await currentUserId()
     const doc = await db.query.documents.findFirst({
-      where: eq(documents.id, data.id),
+      where: and(eq(documents.id, data.id), eq(documents.ownerId, ownerId)),
     })
-    if (!doc || doc.ownerId !== ownerId) throw new Error('Dokumen tidak ditemukan')
+    if (!doc || doc.workspaceId !== data.workspaceId) throw new Error('Dokumen tidak ditemukan')
     if (!doc.objectKey) return { content: null }
     const ctx = await getTenantContext(ownerId)
     const { getObject } = await import('../minio')

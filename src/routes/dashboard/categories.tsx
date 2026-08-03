@@ -7,6 +7,7 @@ import {
   deleteCategory,
   type CategoryView,
 } from '../../server/functions/categories'
+import { useWorkspaceState } from '../../lib/workspace-state'
 
 export const Route = createFileRoute('/dashboard/categories')({
   component: CategoriesPage,
@@ -29,10 +30,12 @@ function CategoriesPage() {
   const [color, setColor] = useState('#2563EB')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const { workspaceId } = useWorkspaceState()
 
   const load = async () => {
+    if (!workspaceId) return
     try {
-      const res = (await listCategories()) as { categories: CategoryView[]; uncategorized: number }
+      const res = (await listCategories({ data: { workspaceId } })) as { categories: CategoryView[]; uncategorized: number }
       setCats(res.categories)
       setUncategorized(res.uncategorized)
     } catch (e) {
@@ -43,8 +46,9 @@ function CategoriesPage() {
   }
 
   useEffect(() => {
+    setLoading(true)
     load()
-  }, [])
+  }, [workspaceId])
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -55,7 +59,7 @@ function CategoriesPage() {
     }
     setBusy(true)
     try {
-      await createCategory({ data: { name, description, icon, color } })
+      await createCategory({ data: { workspaceId: workspaceId as string, name, description, icon, color } })
       setName('')
       setDescription('')
       setShowForm(false)
@@ -69,7 +73,7 @@ function CategoriesPage() {
 
   const remove = async (id: string) => {
     try {
-      await deleteCategory({ data: { id } })
+      await deleteCategory({ data: { id, workspaceId: workspaceId as string } })
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to delete')

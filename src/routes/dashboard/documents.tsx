@@ -9,6 +9,7 @@ import {
   reprocessDocument,
 } from '../../server/functions/upload'
 import { listCategories } from '../../server/functions/categories'
+import { useWorkspaceState } from '../../lib/workspace-state'
 
 type DocRow = {
   id: string
@@ -140,12 +141,17 @@ function DocumentsPage() {
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null)
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
   const navigate = useNavigate()
+  const { workspaceId } = useWorkspaceState()
 
   const refresh = async () => {
+    if (!workspaceId) return
     setLoading(true)
     setLoadError('')
     try {
-      const [rows, cats] = await Promise.all([listDocuments(), listCategories()])
+      const [rows, cats] = await Promise.all([
+        listDocuments({ data: { workspaceId } }),
+        listCategories({ data: { workspaceId } }),
+      ])
       setDocs(rows as DocRow[])
       setCategories(cats.categories as unknown as { name: string }[])
     } catch (e) {
@@ -157,7 +163,7 @@ function DocumentsPage() {
 
   useEffect(() => {
     refresh()
-  }, [])
+  }, [workspaceId])
 
   const isExpired = (d: DocRow) =>
     d.expired || (d.expiredAt ? new Date(d.expiredAt) <= new Date() : false)
@@ -230,7 +236,7 @@ function DocumentsPage() {
     setBusy(id)
     setConfirmDelete(null)
     try {
-      await deleteDocument({ data: { id } })
+      await deleteDocument({ data: { id, workspaceId: workspaceId as string } })
       setSelected((p) => {
         const n = new Set(p)
         n.delete(id)
@@ -246,7 +252,7 @@ function DocumentsPage() {
     setConfirmBulkDelete(false)
     setBusy('__bulk__')
     for (const id of selected) {
-      await deleteDocument({ data: { id } }).catch(() => {})
+      await deleteDocument({ data: { id, workspaceId: workspaceId as string } }).catch(() => {})
     }
     setSelected(new Set())
     await refresh()
@@ -256,7 +262,7 @@ function DocumentsPage() {
   const doToggleHidden = async (d: DocRow) => {
     setBusy(d.id)
     try {
-      await toggleHiddenDocument({ data: { id: d.id, hidden: !d.hidden } })
+      await toggleHiddenDocument({ data: { id: d.id, workspaceId: workspaceId as string, hidden: !d.hidden } })
       await refresh()
     } finally {
       setBusy(null)
@@ -267,7 +273,7 @@ function DocumentsPage() {
   const doDownload = async (id: string) => {
     setBusy(id)
     try {
-      const res = await downloadDocumentUrl({ data: { id } })
+      const res = await downloadDocumentUrl({ data: { id, workspaceId: workspaceId as string } })
       window.open(res.url, '_blank')
     } catch {
       /* ignore */
@@ -281,7 +287,7 @@ function DocumentsPage() {
     setBusy(id)
     setMenuFor(null)
     try {
-      await reprocessDocument({ data: { id } })
+      await reprocessDocument({ data: { id, workspaceId: workspaceId as string } })
       await refresh()
     } catch {
       /* toast handled by UI */
