@@ -155,11 +155,20 @@ export const getDashboardUsage = createServerFn({ method: 'GET' })
     .from(topupTokens)
     .where(and(eq(topupTokens.userId, userId), eq(topupTokens.status, 'active')))
   const topupTotal = topupRow[0]?.total ?? 0
-  const tm = await db.query.tenantMap.findFirst({
-    where: eq(tenantMap.userId, userId),
-    columns: { topupUsed: true },
-  })
-  const topupUsed = tm?.topupUsed ?? 0
+  
+  let topupUsed = 0
+  try {
+    const tm = await db.query.tenantMap.findFirst({
+      where: eq(tenantMap.userId, userId),
+      columns: { topupUsed: true },
+    })
+    topupUsed = tm?.topupUsed ?? 0
+  } catch (error) {
+    console.error('Error fetching topup_used from tenant_map:', error)
+    // If tenant_map doesn't exist yet, the context creation should have handled it
+    // But we'll fallback to 0 just in case
+    topupUsed = 0
+  }
 
   // Calculations
   const storageTotalMb = Math.round(ctx.limits.storageBytes / (1024 * 1024))

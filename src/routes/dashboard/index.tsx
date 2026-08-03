@@ -169,7 +169,7 @@ function DashboardHome() {
               Here's your activity, usage, and plan summary for today.
             </p>
           </div>
-          <div className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--muted)] px-3.5 py-2 text-xs font-semibold text-[var(--mutfg)]">
+          <div suppressHydrationWarning className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--muted)] px-3.5 py-2 text-xs font-semibold text-[var(--mutfg)]">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
             {new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })}
           </div>

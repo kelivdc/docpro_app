@@ -24,6 +24,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as DashboardProfileRouteImport } from './routes/dashboard/profile'
 import { Route as DashboardPlansRouteImport } from './routes/dashboard/plans'
+import { Route as DashboardMembersRouteImport } from './routes/dashboard/members'
 import { Route as DashboardFilesRouteImport } from './routes/dashboard/files'
 import { Route as DashboardDocumentsRouteImport } from './routes/dashboard/documents'
 import { Route as DashboardChatRouteImport } from './routes/dashboard/chat'
@@ -106,6 +107,11 @@ const DashboardPlansRoute = DashboardPlansRouteImport.update({
   path: '/plans',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardMembersRoute = DashboardMembersRouteImport.update({
+  id: '/members',
+  path: '/members',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const DashboardFilesRoute = DashboardFilesRouteImport.update({
   id: '/files',
   path: '/files',
@@ -155,6 +161,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/chat': typeof DashboardChatRoute
   '/dashboard/documents': typeof DashboardDocumentsRoute
   '/dashboard/files': typeof DashboardFilesRoute
+  '/dashboard/members': typeof DashboardMembersRoute
   '/dashboard/plans': typeof DashboardPlansRoute
   '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard/': typeof DashboardIndexRoute
@@ -177,6 +184,7 @@ export interface FileRoutesByTo {
   '/dashboard/chat': typeof DashboardChatRoute
   '/dashboard/documents': typeof DashboardDocumentsRoute
   '/dashboard/files': typeof DashboardFilesRoute
+  '/dashboard/members': typeof DashboardMembersRoute
   '/dashboard/plans': typeof DashboardPlansRoute
   '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard': typeof DashboardIndexRoute
@@ -201,6 +209,7 @@ export interface FileRoutesById {
   '/dashboard/chat': typeof DashboardChatRoute
   '/dashboard/documents': typeof DashboardDocumentsRoute
   '/dashboard/files': typeof DashboardFilesRoute
+  '/dashboard/members': typeof DashboardMembersRoute
   '/dashboard/plans': typeof DashboardPlansRoute
   '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard/': typeof DashboardIndexRoute
@@ -226,6 +235,7 @@ export interface FileRouteTypes {
     | '/dashboard/chat'
     | '/dashboard/documents'
     | '/dashboard/files'
+    | '/dashboard/members'
     | '/dashboard/plans'
     | '/dashboard/profile'
     | '/dashboard/'
@@ -248,6 +258,7 @@ export interface FileRouteTypes {
     | '/dashboard/chat'
     | '/dashboard/documents'
     | '/dashboard/files'
+    | '/dashboard/members'
     | '/dashboard/plans'
     | '/dashboard/profile'
     | '/dashboard'
@@ -271,6 +282,7 @@ export interface FileRouteTypes {
     | '/dashboard/chat'
     | '/dashboard/documents'
     | '/dashboard/files'
+    | '/dashboard/members'
     | '/dashboard/plans'
     | '/dashboard/profile'
     | '/dashboard/'
@@ -401,6 +413,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardPlansRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/dashboard/members': {
+      id: '/dashboard/members'
+      path: '/members'
+      fullPath: '/dashboard/members'
+      preLoaderRoute: typeof DashboardMembersRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/dashboard/files': {
       id: '/dashboard/files'
       path: '/files'
@@ -451,6 +470,7 @@ interface DashboardRouteChildren {
   DashboardChatRoute: typeof DashboardChatRoute
   DashboardDocumentsRoute: typeof DashboardDocumentsRoute
   DashboardFilesRoute: typeof DashboardFilesRoute
+  DashboardMembersRoute: typeof DashboardMembersRoute
   DashboardPlansRoute: typeof DashboardPlansRoute
   DashboardProfileRoute: typeof DashboardProfileRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
@@ -461,6 +481,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardChatRoute: DashboardChatRoute,
   DashboardDocumentsRoute: DashboardDocumentsRoute,
   DashboardFilesRoute: DashboardFilesRoute,
+  DashboardMembersRoute: DashboardMembersRoute,
   DashboardPlansRoute: DashboardPlansRoute,
   DashboardProfileRoute: DashboardProfileRoute,
   DashboardIndexRoute: DashboardIndexRoute,

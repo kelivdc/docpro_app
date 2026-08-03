@@ -268,6 +268,7 @@ async function main() {
 
   // Top-up / subscription support
   await db.execute(sql.raw(`ALTER TABLE tenant_map ADD COLUMN IF NOT EXISTS topup_used integer NOT NULL DEFAULT 0`))
+  await db.execute(sql.raw(`ALTER TABLE tenant_map ADD COLUMN IF NOT EXISTS org_name text`))
 
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS subscriptions (
@@ -292,6 +293,27 @@ async function main() {
       status text NOT NULL DEFAULT 'active'
     )
   `)
+
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS organization_members (
+      id text PRIMARY KEY,
+      owner_id text NOT NULL REFERENCES "user"(id) ON DELETE cascade,
+      user_id text REFERENCES "user"(id) ON DELETE set null,
+      name text,
+      email text NOT NULL,
+      role text NOT NULL DEFAULT 'member',
+      status text NOT NULL DEFAULT 'active',
+      expires_at timestamp,
+      created_at timestamp NOT NULL DEFAULT now(),
+      updated_at timestamp NOT NULL DEFAULT now()
+    )
+  `)
+  await db.execute(
+    sql`ALTER TABLE organization_members ADD COLUMN IF NOT EXISTS expires_at timestamp`,
+  )
+  await db.execute(
+    sql`ALTER TABLE organization_members ALTER COLUMN name DROP NOT NULL`,
+  )
 
   // Migrate the embedding column if its dimension changed (idempotent).
   // Incompatible dims can't be cast, so clear existing vectors first

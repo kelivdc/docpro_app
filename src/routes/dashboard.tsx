@@ -38,7 +38,28 @@ export const Route = createFileRoute('/dashboard')({
     }
   },
   loader: async (): Promise<DashboardUsage> => {
-    return getDashboardUsage()
+    try {
+      return await getDashboardUsage()
+    } catch (error) {
+      console.error('Error loading dashboard usage:', error)
+      // Return default values if there's an error
+      return {
+        tier: 'free',
+        storageUsedMb: 0,
+        storageTotalMb: 50,
+        storagePct: 0,
+        tokenUsed: 0,
+        tokenTotal: 50000,
+        tokenPct: 0,
+        topupTotal: 0,
+        topupUsed: 0,
+        documentCount: 0,
+        chatCount: 0,
+        recentDocuments: [],
+        chatTrend: [],
+        deletionScheduled: false,
+      }
+    }
   },
   head: () => ({
     meta: [{ title: 'DocPro — Dashboard' }],

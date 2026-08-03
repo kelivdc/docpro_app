@@ -119,7 +119,7 @@ function PlansPage() {
               <div className="rounded-xl border border-[var(--border)] bg-[var(--card-bg)] px-4 py-3 text-sm">
                 <span className="font-semibold text-[var(--fg)]">{sub.tier === 'pro' ? 'Pro' : 'Business'} Plan</span>
                 <span className="mx-2 text-[var(--mutfg)]">·</span>
-                <span className="text-[var(--mutfg)]">Expires {new Date(sub.expiresAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                <span className="text-[var(--mutfg)]">Expires {new Date(sub.expiresAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })}</span>
                 <span className="mx-2 text-[var(--mutfg)]">·</span>
                 <span className="text-[var(--mutfg)]">Top-up balance: <strong className="text-[var(--fg)]">{(sub.topupBalance / 1_000_000).toFixed(1)}M</strong> tokens</span>
               </div>

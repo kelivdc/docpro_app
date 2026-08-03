@@ -2,9 +2,7 @@ import { useState, useEffect } from 'react'
 
 const STORAGE_KEY = 'docpro-workspace-id'
 
-let workspaceId = typeof window !== 'undefined'
-  ? window.localStorage.getItem(STORAGE_KEY)
-  : null
+let workspaceId: string | null = null
 
 const listeners = new Set<(workspaceId: string | null) => void>()
 
@@ -30,12 +28,21 @@ export function setWorkspaceId(id: string) {
 }
 
 export function useWorkspaceState() {
-  const [state, setState] = useState<string | null>(workspaceId)
+  const [state, setState] = useState<string | null>(null)
+
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = window.localStorage.getItem(STORAGE_KEY)
+      if (stored && stored !== workspaceId) {
+        workspaceId = stored
+        setState(stored)
+      }
+    }
     listeners.add(setState)
     return () => {
       listeners.delete(setState)
     }
   }, [])
+
   return { workspaceId: state, setWorkspace: setWorkspaceId }
 }

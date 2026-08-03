@@ -2,9 +2,7 @@ import { useState, useEffect } from 'react'
 
 const STORAGE_KEY = 'docpro-sidebar-collapsed'
 
-let collapsed = typeof window !== 'undefined'
-  ? window.localStorage.getItem(STORAGE_KEY) === 'true'
-  : false
+let collapsed = false
 
 const listeners = new Set<(collapsed: boolean) => void>()
 
@@ -29,12 +27,21 @@ export function toggleSidebar() {
 }
 
 export function useSidebarState() {
-  const [state, setState] = useState(collapsed)
+  const [state, setState] = useState(false)
+
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = window.localStorage.getItem(STORAGE_KEY) === 'true'
+      if (stored !== collapsed) {
+        collapsed = stored
+        setState(stored)
+      }
+    }
     listeners.add(setState)
     return () => {
       listeners.delete(setState)
     }
   }, [])
+
   return { collapsed: state, toggle: toggleSidebar }
 }

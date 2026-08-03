@@ -1,14 +1,41 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useState } from 'react'
+import { createFileRoute, useNavigate, Link } from '@tanstack/react-router'
+import { useState, useEffect } from 'react'
 import { DashboardHeader } from './index'
 import { Route as DashboardRoute } from '../dashboard'
 import { signOut } from '../../lib/auth-client'
 import { deleteAccount, cancelDeleteAccount } from '../../server/functions/delete-account'
 import { DonutChart } from '../../components/DonutChart'
 import { getSubscriptionStatus } from '../../server/functions/subscription'
+import { getProfileFn, updateOrgNameFn } from '../../server/functions/profile'
 
 export const Route = createFileRoute('/dashboard/profile')({
-  loader: async () => ({ sub: await getSubscriptionStatus() }),
+  loader: async () => {
+    try {
+      const [sub, profile] = await Promise.all([
+        getSubscriptionStatus(),
+        getProfileFn()
+      ])
+      return { sub, profile }
+    } catch (error) {
+      console.error('Error loading profile data:', error)
+      // Return default values if there's an error
+      return {
+        sub: {
+          active: false,
+          tier: null,
+          expiresAt: null,
+          topupBalance: 0,
+          topupUsed: 0
+        },
+        profile: {
+          name: null,
+          email: '',
+          orgName: null,
+          tier: 'free'
+        }
+      }
+    }
+  },
   component: ProfilePage,
   head: () => ({
     meta: [{ title: 'DocPro — Profile' }],
@@ -18,7 +45,7 @@ export const Route = createFileRoute('/dashboard/profile')({
 function ProfilePage() {
   const { session } = DashboardRoute.useRouteContext()
   const usage = DashboardRoute.useLoaderData()
-  const { sub } = Route.useLoaderData()
+  const { sub, profile } = Route.useLoaderData()
   const user = session.user
   const navigate = useNavigate()
   const storagePct = usage?.storagePct ?? 0
@@ -38,9 +65,32 @@ function ProfilePage() {
     charts.push({ label: 'Top-Up Tokens', pct: 100 - topupPct, value: formatToken(usage.topupTotal - usage.topupUsed), subvalue: formatToken(usage.topupTotal), color: '#a855f7 #ec4899' })
   }
 
+  const [orgName, setOrgName] = useState(profile.orgName ?? '')
+  const [savingOrg, setSavingOrg] = useState(false)
   const [confirmText, setConfirmText] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+
+  useEffect(() => {
+    setOrgName(profile.orgName ?? '')
+  }, [profile.orgName])
+
+  const handleSaveOrgName = async () => {
+    setSavingOrg(true)
+    try {
+      const result = await updateOrgNameFn({ data: { orgName } })
+      // Update the profile state with the new orgName
+      if (result.ok) {
+        // Force reload the route to get updated profile data
+        navigate({ to: '/dashboard/profile', replace: true })
+      }
+    } catch (error) {
+      console.error('Error saving organization name:', error)
+      alert('Failed to save organization name. Please try again.')
+    } finally {
+      setSavingOrg(false)
+    }
+  }
 
   const handleDelete = async () => {
     if (confirmText !== 'DELETE') return
@@ -96,7 +146,7 @@ function ProfilePage() {
               <h2 className="text-base font-bold text-[var(--fg)]">{tier} Plan</h2>
               <p className="text-xs text-[var(--mutfg)]">
                 {sub.active && sub.expiresAt
-                  ? <>Expires {new Date(sub.expiresAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</>
+                  ? <>Expires {new Date(sub.expiresAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })}</>
                   : 'Never expired'}
               </p>
             </div>
@@ -115,6 +165,45 @@ function ProfilePage() {
                 color={c.color}
               />
             ))}
+          </div>
+        </div>
+
+        {/* Organization info */}
+        <div className="mb-6 rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-6">
+          <h2 className="mb-4 text-base font-bold text-[var(--fg)]">Organization</h2>
+          <div className="space-y-4">
+            <div>
+              <label className="mb-2 block text-sm text-[var(--mutfg)]">Organization Name</label>
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  value={orgName}
+                  onChange={(e) => setOrgName(e.target.value)}
+                  placeholder="Enter organization name"
+                  className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--bg)] px-4 py-2.5 text-sm text-[var(--fg)] outline-none focus:border-blue-500"
+                />
+                <button
+                  onClick={handleSaveOrgName}
+                  disabled={savingOrg || (orgName.trim() === '' && !profile.orgName) || orgName === (profile.orgName ?? '')}
+                  className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {savingOrg ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--bg)] p-4">
+              <div>
+                <div className="text-sm font-bold text-[var(--fg)]">Team Members & Access</div>
+                <div className="text-xs text-[var(--mutfg)]">Manage organization members and assign roles.</div>
+              </div>
+              <Link
+                to="/dashboard/members"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] px-4 py-2 text-xs font-bold text-[var(--fg)] hover:bg-[var(--muted)] transition-colors"
+              >
+                Manage Members →
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -138,7 +227,7 @@ function ProfilePage() {
               <dt className="text-[var(--mutfg)]">Expires</dt>
               <dd className="font-medium text-[var(--fg)]">
                 {sub.active && sub.expiresAt
-                  ? new Date(sub.expiresAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+                  ? new Date(sub.expiresAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
                   : 'Never expired'}
               </dd>
             </div>
