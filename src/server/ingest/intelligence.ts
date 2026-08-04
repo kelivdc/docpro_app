@@ -40,7 +40,7 @@ export function scoreIntelligence(
   // 2. Heading detection: presence of hierarchical headings / containers.
   const containers = blocks.filter((b) => CONTAINER_TYPES.has(b.type)).length
   const headingDetection = containers > 0 ? pct(containers, Math.max(1, Math.ceil(blocks.length / 8))) : 0
-  if (containers === 0) notes.push('Tidak ada heading/struktur terdeteksi.')
+  if (containers === 0) notes.push('No headings/structure detected.')
 
   // 3. Table detection: did we keep tables?
   const tables = blocks.filter((b) => b.type === 'table').length

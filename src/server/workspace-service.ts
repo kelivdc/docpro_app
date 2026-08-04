@@ -36,7 +36,7 @@ export async function getOrCreateDefaultWorkspace(ownerId: string): Promise<{ id
     where: and(eq(workspaces.ownerId, ownerId), eq(workspaces.isDefault, true)),
     columns: { id: true },
   })
-  if (!again) throw new Error('Gagal membuat workspace default')
+  if (!again) throw new Error('Failed to create default workspace')
   return { id: again.id }
 }
 
@@ -101,15 +101,15 @@ export async function deleteWorkspace(ownerId: string, id: string): Promise<void
   const ws = await db.query.workspaces.findFirst({
     where: and(eq(workspaces.id, id), eq(workspaces.ownerId, ownerId)),
   })
-  if (!ws) throw new Error('Workspace tidak ditemukan')
-  if (ws.isDefault) throw new Error('Workspace default tidak bisa dihapus')
+  if (!ws) throw new Error('Workspace not found')
+  if (ws.isDefault) throw new Error('The default workspace cannot be deleted')
 
   const processing = await db
     .select({ c: sql<number>`count(*)::int` })
     .from(documents)
     .where(and(eq(documents.workspaceId, id), eq(documents.status, 'processing')))
   if ((processing[0]?.c ?? 0) > 0) {
-    throw new Error('Workspace masih memproses dokumen. Coba lagi beberapa saat.')
+    throw new Error('Workspace is still processing documents. Try again in a moment.')
   }
 
   const docs = await db

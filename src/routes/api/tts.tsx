@@ -21,7 +21,7 @@ export const Route = createFileRoute('/api/tts')({
             },
           })
         } catch (e) {
-          const msg = e instanceof TtsUnavailableError ? e.message : 'TTS gagal'
+          const msg = e instanceof TtsUnavailableError ? e.message : 'TTS failed'
           return new Response(msg, { status: 501 })
         }
       },

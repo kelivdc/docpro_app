@@ -119,8 +119,8 @@ export async function ingestDocument(input: IngestInput): Promise<IngestResult> 
 
     if (structure.blocks.length === 0) {
       const message =
-        'Tidak ada teks yang bisa diekstrak dari dokumen ini. ' +
-        'Pastikan file bukan hasil pemindaian (scan) tanpa lapisan teks, atau coba unggah versi teks.'
+        'No text could be extracted from this document. ' +
+        'Make sure the file is not a scanned image without a text layer, or try uploading a text version.'
       await db
         .update(documents)
         .set({ status: 'error', error: message, intelligenceScore: intelligence })
@@ -173,7 +173,7 @@ export async function ingestDocument(input: IngestInput): Promise<IngestResult> 
     }
   } catch (err) {
     console.error('[ingest] failed:', err)
-    const message = err instanceof Error ? err.message : 'Ingest gagal'
+    const message = err instanceof Error ? err.message : 'Ingest failed'
     await db
       .update(documents)
       .set({ status: 'error' })

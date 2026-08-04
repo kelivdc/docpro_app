@@ -15,7 +15,7 @@ export interface TtsResult {
 
 export class TtsUnavailableError extends Error {
   constructor() {
-    super('TTS tidak tersedia di server ini.')
+    super('TTS is not available on this server.')
     this.name = 'TtsUnavailableError'
   }
 }
@@ -55,7 +55,7 @@ function espeakTts(text: string, rate = 150): Promise<TtsResult> {
     proc.on('close', (code) => {
       if (code !== 0) {
         const msg = Buffer.concat(errChunks).toString().slice(0, 200)
-        reject(new Error(`espeak-ng gagal: ${msg}`))
+        reject(new Error(`espeak-ng failed: ${msg}`))
         return
       }
       if (chunks.length === 0) {
@@ -91,7 +91,7 @@ function edgeTts(text: string, voice = 'id-ID-ArdiNeural'): Promise<TtsResult> {
         if (msg.includes('command') || msg.toLowerCase().includes('not found')) {
           reject(new TtsUnavailableError())
         } else {
-          reject(new Error(`EdgeTTS gagal: ${msg}`))
+          reject(new Error(`EdgeTTS failed: ${msg}`))
         }
         return
       }

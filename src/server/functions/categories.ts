@@ -23,7 +23,7 @@ export type { CategoryView }
 export const listCategories = createServerFn({ method: 'GET' })
   .validator((data: unknown) => {
     const d = data as { workspaceId?: string }
-    if (!d?.workspaceId) throw new Error('workspaceId wajib')
+    if (!d?.workspaceId) throw new Error('workspaceId is required')
     return { workspaceId: d.workspaceId }
   })
   .handler(async ({ data }) => {
@@ -34,9 +34,9 @@ export const listCategories = createServerFn({ method: 'GET' })
 export const createCategory = createServerFn({ method: 'POST' })
   .validator((data: unknown) => {
     const d = data as { workspaceId: string; name: string; description?: string; icon?: string; color?: string }
-    if (!d?.workspaceId) throw new Error('workspaceId wajib')
-    if (!d?.name || d.name.trim().length === 0) throw new Error('Nama kategori wajib')
-    if (d.name.length > 40) throw new Error('Nama maksimal 40 karakter')
+    if (!d?.workspaceId) throw new Error('workspaceId is required')
+    if (!d?.name || d.name.trim().length === 0) throw new Error('Category name is required')
+    if (d.name.length > 40) throw new Error('Name max 40 characters')
     return d
   })
   .handler(async ({ data }) => {
@@ -47,8 +47,8 @@ export const createCategory = createServerFn({ method: 'POST' })
 export const deleteCategory = createServerFn({ method: 'POST' })
   .validator((data: unknown) => {
     const d = data as { id: string; workspaceId: string }
-    if (!d?.id) throw new Error('id wajib')
-    if (!d?.workspaceId) throw new Error('workspaceId wajib')
+    if (!d?.id) throw new Error('id is required')
+    if (!d?.workspaceId) throw new Error('workspaceId is required')
     return d
   })
   .handler(async ({ data }) => {

@@ -76,7 +76,7 @@ export const createSession = createServerFn({ method: 'POST' })
       .values({
         userId,
         workspaceId: data.workspaceId ?? null,
-        title: data.title ?? 'Percakapan Baru',
+        title: data.title ?? 'New Chat',
         documentIds: data.documentIds ?? null,
       })
       .returning()
@@ -86,7 +86,7 @@ export const createSession = createServerFn({ method: 'POST' })
 export const renameSession = createServerFn({ method: 'POST' })
   .validator((data: unknown) => {
     const d = data as { id: string; title: string; workspaceId?: string }
-    if (!d?.id || !d?.title?.trim()) throw new Error('ID dan judul diperlukan')
+    if (!d?.id || !d?.title?.trim()) throw new Error('ID and title are required')
     return { id: d.id, title: d.title, workspaceId: d?.workspaceId }
   })
   .handler(async ({ data }) => {
@@ -94,21 +94,21 @@ export const renameSession = createServerFn({ method: 'POST' })
     const session = await db.query.chatSessions.findFirst({
       where: eq(chatSessions.id, data.id),
     })
-    if (!session || session.userId !== userId) throw new Error('Sesi tidak ditemukan')
-    if (session.workspaceId !== (data.workspaceId ?? null)) throw new Error('Sesi tidak ditemukan')
+    if (!session || session.userId !== userId) throw new Error('Session not found')
+    if (session.workspaceId !== (data.workspaceId ?? null)) throw new Error('Session not found')
     const [row] = await db
       .update(chatSessions)
       .set({ title: data.title.trim(), updatedAt: new Date() })
       .where(and(eq(chatSessions.id, data.id), eq(chatSessions.userId, userId)))
       .returning()
-    if (!row) throw new Error('Sesi tidak ditemukan')
+    if (!row) throw new Error('Session not found')
     return mapSession(row)
   })
 
 export const deleteSession = createServerFn({ method: 'POST' })
   .validator((data: unknown) => {
     const d = data as { id: string; workspaceId?: string }
-    if (!d?.id) throw new Error('ID sesi diperlukan')
+    if (!d?.id) throw new Error('Session ID is required')
     return { id: d.id, workspaceId: d?.workspaceId }
   })
   .handler(async ({ data }) => {
@@ -116,8 +116,8 @@ export const deleteSession = createServerFn({ method: 'POST' })
     const session = await db.query.chatSessions.findFirst({
       where: eq(chatSessions.id, data.id),
     })
-    if (!session || session.userId !== userId) throw new Error('Sesi tidak ditemukan')
-    if (session.workspaceId !== (data.workspaceId ?? null)) throw new Error('Sesi tidak ditemukan')
+    if (!session || session.userId !== userId) throw new Error('Session not found')
+    if (session.workspaceId !== (data.workspaceId ?? null)) throw new Error('Session not found')
     await db
       .delete(chatSessions)
       .where(and(eq(chatSessions.id, data.id), eq(chatSessions.userId, userId)))
@@ -127,7 +127,7 @@ export const deleteSession = createServerFn({ method: 'POST' })
 export const getSessionMessages = createServerFn({ method: 'GET' })
   .validator((data: unknown) => {
     const d = data as { id: string; workspaceId?: string }
-    if (!d?.id) throw new Error('ID sesi diperlukan')
+    if (!d?.id) throw new Error('Session ID is required')
     return { id: d.id, workspaceId: d?.workspaceId }
   })
   .handler(async ({ data }) => {
@@ -135,8 +135,8 @@ export const getSessionMessages = createServerFn({ method: 'GET' })
     const session = await db.query.chatSessions.findFirst({
       where: eq(chatSessions.id, data.id),
     })
-    if (!session || session.userId !== userId) throw new Error('Sesi tidak ditemukan')
-    if (session.workspaceId !== (data.workspaceId ?? null)) throw new Error('Sesi tidak ditemukan')
+    if (!session || session.userId !== userId) throw new Error('Session not found')
+    if (session.workspaceId !== (data.workspaceId ?? null)) throw new Error('Session not found')
     const rows = await db
       .select()
       .from(chatMessages)
@@ -153,7 +153,7 @@ export const saveSessionMessages = createServerFn({ method: 'POST' })
       messages: { role: 'user' | 'assistant'; content: string; sources?: Source[] | null; cost?: MessageCost | null }[]
       documentIds?: string[]
     }
-    if (!d?.sessionId || !d?.messages) throw new Error('Data sesi dan pesan diperlukan')
+    if (!d?.sessionId || !d?.messages) throw new Error('Session data and messages are required')
     return d
   })
   .handler(async ({ data }) => {
@@ -161,8 +161,8 @@ export const saveSessionMessages = createServerFn({ method: 'POST' })
     const session = await db.query.chatSessions.findFirst({
       where: eq(chatSessions.id, data.sessionId),
     })
-    if (!session || session.userId !== userId) throw new Error('Sesi tidak ditemukan')
-    if (session.workspaceId !== (data.workspaceId ?? null)) throw new Error('Sesi tidak ditemukan')
+    if (!session || session.userId !== userId) throw new Error('Session not found')
+    if (session.workspaceId !== (data.workspaceId ?? null)) throw new Error('Session not found')
 
     // Delete old messages and re-insert
     await db.delete(chatMessages).where(eq(chatMessages.sessionId, data.sessionId))
@@ -199,7 +199,7 @@ export const saveSessionMessages = createServerFn({ method: 'POST' })
 export const getSession = createServerFn({ method: 'GET' })
   .validator((data: unknown) => {
     const d = data as { id: string; workspaceId?: string }
-    if (!d?.id) throw new Error('ID sesi diperlukan')
+    if (!d?.id) throw new Error('Session ID is required')
     return { id: d.id, workspaceId: d?.workspaceId }
   })
   .handler(async ({ data }) => {
@@ -207,8 +207,8 @@ export const getSession = createServerFn({ method: 'GET' })
     const row = await db.query.chatSessions.findFirst({
       where: eq(chatSessions.id, data.id),
     })
-    if (!row || row.userId !== userId) throw new Error('Sesi tidak ditemukan')
-    if (row.workspaceId !== (data.workspaceId ?? null)) throw new Error('Sesi tidak ditemukan')
+    if (!row || row.userId !== userId) throw new Error('Session not found')
+    if (row.workspaceId !== (data.workspaceId ?? null)) throw new Error('Session not found')
     return mapSession(row)
   })
 

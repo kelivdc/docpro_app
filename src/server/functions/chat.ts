@@ -43,9 +43,9 @@ export interface ChatResponse {
 export const chatAsk = createServerFn({ method: 'POST' })
   .validator((data: unknown) => {
     const d = data as ChatPayload
-    if (!d?.question || d.question.trim().length === 0) throw new Error('Pertanyaan kosong')
-    if (!d?.workspaceId) throw new Error('workspaceId wajib')
-    if (d.question.length > 2000) throw new Error('Pertanyaan terlalu panjang (maks 2000 karakter)')
+    if (!d?.question || d.question.trim().length === 0) throw new Error('Question is empty')
+    if (!d?.workspaceId) throw new Error('workspaceId is required')
+    if (d.question.length > 2000) throw new Error('Question too long (max 2000 characters)')
     return d
   })
   .handler(async ({ data }): Promise<ChatResponse> => {
@@ -88,9 +88,9 @@ export const chatContinue = createServerFn({ method: 'POST' })
       history?: { role: 'user' | 'assistant'; content: string }[]
       documentIds?: string[]
     }
-    if (!d?.question || !d?.priorAnswer) throw new Error('Pertanyaan dan jawaban sebelumnya diperlukan')
-    if (!d?.workspaceId) throw new Error('workspaceId wajib')
-    if (d.question.length > 2000) throw new Error('Pertanyaan terlalu panjang (maks 2000 karakter)')
+    if (!d?.question || !d?.priorAnswer) throw new Error('Previous question and answer are required')
+    if (!d?.workspaceId) throw new Error('workspaceId is required')
+    if (d.question.length > 2000) throw new Error('Question too long (max 2000 characters)')
     return d
   })
   .handler(async ({ data }): Promise<ChatResponse> => {
@@ -124,7 +124,7 @@ export const chatContinue = createServerFn({ method: 'POST' })
 export const chatAudio = createServerFn({ method: 'POST' })
   .validator((data: unknown) => {
     const d = data as { text: string }
-    if (!d?.text) throw new Error('Teks kosong')
+    if (!d?.text) throw new Error('Text is empty')
     return d
   })
   .handler(async ({ data }): Promise<{ audio: string; mime: string } | { error: string }> => {

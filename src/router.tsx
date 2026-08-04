@@ -12,7 +12,7 @@ export function getRouter() {
       <div className="grid min-h-screen place-items-center bg-[var(--bg)] text-center">
         <div>
           <h1 className="text-3xl font-extrabold text-[var(--fg)]">404</h1>
-          <p className="mt-2 text-sm text-[var(--mutfg)]">Halaman tidak ditemukan.</p>
+          <p className="mt-2 text-sm text-[var(--mutfg)]">Page not found.</p>
         </div>
       </div>
     ),

@@ -34,11 +34,11 @@ function localEmbed(text: string): number[] {
 // Returns the most relevant context (the user message carries the doc context).
 function localAnswer(messages: ChatMessage[]): ChatResult {
   const userMsg = messages.find((m) => m.role === 'user')?.content ?? ''
-  const idx = userMsg.indexOf('Konteks dokumen:')
-  const context = idx >= 0 ? userMsg.slice(idx + 'Konteks dokumen:'.length) : userMsg
+  const idx = userMsg.indexOf('Document context:')
+  const context = idx >= 0 ? userMsg.slice(idx + 'Document context:'.length) : userMsg
   const snippet = context.split('\n').filter((l) => l.trim().length > 0).slice(0, 6).join(' ').trim()
-  if (!snippet) return { text: 'Maaf, saya tidak menemukan informasi terkait di dokumen Anda.', truncated: false }
-  return { text: `Berdasarkan dokumen Anda: ${snippet.slice(0, 600)}`, truncated: false }
+  if (!snippet) return { text: 'Sorry, I could not find relevant information in your documents.', truncated: false }
+  return { text: `Based on your documents: ${snippet.slice(0, 600)}`, truncated: false }
 }
 
 import { EMBED_DIM } from '../lib/schema/documents'

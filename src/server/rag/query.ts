@@ -144,21 +144,21 @@ async function rewriteToStandalone(
   const chat = provider.chat.bind(provider)
   const convo = history
     .slice(-6)
-    .map((t) => `${t.role === 'user' ? 'User' : 'Asisten'}: ${t.content}`)
+    .map((t) => `${t.role === 'user' ? 'User' : 'Assistant'}: ${t.content}`)
     .join('\n')
   const system: ChatMessage = {
     role: 'system',
     content:
-      'Anda adalah asisten yang mengubah pertanyaan pengguna menjadi pertanyaan mandiri (standalone question) ' +
-      'berdasarkan riwayat percakapan. Jika pertanyaan saat ini sudah lengkap dan tidak bergantung pada ' +
-      'riwayat, kembalikan apa adanya. Jika merupakan kelanjutan (merujuk pada pertanyaan sebelumnya, ' +
-      'menggunakan kata seperti "nomor 6", "yang tadi", "bagaimana dengan"), gabungkan dengan konteks ' +
-      'sebelumnya sehingga pertanyaan baru dapat dipahami tanpa riwayat. Hanya keluarkan teks pertanyaan ' +
-      'mandiri, tanpa penjelasan atau tanda kutip.',
+      'You are an assistant that rewrites the user\'s question into a standalone question ' +
+      'based on the conversation history. If the current question is already complete and does not depend on ' +
+      'the history, return it as-is. If it is a follow-up (referring to a previous question, ' +
+      'using words like "number 6", "the one before", "what about"), merge it with the prior ' +
+      'context so the new question can be understood without the history. Only output the standalone ' +
+      'question text, with no explanation or quotes.',
   }
   const user: ChatMessage = {
     role: 'user',
-    content: `Riwayat percakapan:\n${convo}\n\nPertanyaan saat ini:\n${question}\n\nStandalone question:`,
+    content: `Conversation history:\n${convo}\n\nCurrent question:\n${question}\n\nStandalone question:`,
   }
   const res = await chat([system, user], { temperature: 0, maxTokens: 256 })
   const rewritten = (res.text || '').trim().replace(/^["'`]|["'`]$/g, '')
@@ -171,7 +171,7 @@ export async function answerQuestion(
   opts?: { workspaceId: string; category?: string; path?: string; limit?: number; history?: ChatTurn[]; documentIds?: string[] },
 ): Promise<ChatAnswer> {
   const ctx = await getTenantContext(userId)
-  if (!opts?.workspaceId) throw new Error('workspaceId wajib')
+  if (!opts?.workspaceId) throw new Error('workspaceId is required')
 
   // AD-12: enforce monthly token limit, with top-up overflow support
   const monthTokens = await getMonthlyTokenUsage(userId)
@@ -240,7 +240,7 @@ export async function answerQuestion(
       const d = byId.get(hit.documentId)
       return {
         documentId: hit.documentId,
-        name: d?.name ?? 'Dokumen',
+        name: d?.name ?? 'Document',
         path: d?.path ?? null,
         category: d?.category ?? null,
         score: hit.score,
@@ -270,7 +270,7 @@ export async function continueAnswer(
   opts?: { workspaceId: string; category?: string; path?: string; limit?: number; history?: ChatTurn[]; documentIds?: string[] },
 ): Promise<ChatAnswer> {
   const ctx = await getTenantContext(userId)
-  if (!opts?.workspaceId) throw new Error('workspaceId wajib')
+  if (!opts?.workspaceId) throw new Error('workspaceId is required')
   const monthTokens = await getMonthlyTokenUsage(userId)
   if (monthTokens >= ctx.limits.tokenPerMonth) {
     const topupAvailable = await getAvailableTopupBalance(userId)
@@ -325,7 +325,7 @@ export async function continueAnswer(
       const d = byId.get(hit.documentId)
       return {
         documentId: hit.documentId,
-        name: d?.name ?? 'Dokumen',
+        name: d?.name ?? 'Document',
         path: d?.path ?? null,
         category: d?.category ?? null,
         score: hit.score,
@@ -353,7 +353,7 @@ export async function* streamAnswer(
   opts?: { workspaceId: string; category?: string; path?: string; limit?: number },
 ): AsyncGenerator<string, ChatAnswer, unknown> {
   const ctx = await getTenantContext(userId)
-  if (!opts?.workspaceId) throw new Error('workspaceId wajib')
+  if (!opts?.workspaceId) throw new Error('workspaceId is required')
   const monthTokens = await getMonthlyTokenUsage(userId)
   if (monthTokens >= ctx.limits.tokenPerMonth) {
     const topupAvailable = await getAvailableTopupBalance(userId)
@@ -417,7 +417,7 @@ export async function* streamAnswer(
       const d = byId.get(hit.documentId)
       return {
         documentId: hit.documentId,
-        name: d?.name ?? 'Dokumen',
+        name: d?.name ?? 'Document',
         path: d?.path ?? null,
         category: d?.category ?? null,
         score: hit.score,

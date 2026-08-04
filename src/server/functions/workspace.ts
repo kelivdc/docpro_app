@@ -29,8 +29,8 @@ export const listWorkspacesFn = createServerFn({ method: 'GET' }).handler(async 
 export const createWorkspaceFn = createServerFn({ method: 'POST' })
   .validator((data: unknown) => {
     const d = data as { name: string; description?: string; icon?: string; color?: string }
-    if (!d?.name || d.name.trim().length === 0) throw new Error('Nama workspace wajib')
-    if (d.name.length > 60) throw new Error('Nama maksimal 60 karakter')
+    if (!d?.name || d.name.trim().length === 0) throw new Error('Workspace name is required')
+    if (d.name.length > 60) throw new Error('Name max 60 characters')
     return d
   })
   .handler(async ({ data }) => {
@@ -41,8 +41,8 @@ export const createWorkspaceFn = createServerFn({ method: 'POST' })
 export const renameWorkspaceFn = createServerFn({ method: 'POST' })
   .validator((data: unknown) => {
     const d = data as { id: string; name: string }
-    if (!d?.id || !d?.name || d.name.trim().length === 0) throw new Error('id dan nama wajib')
-    if (d.name.length > 60) throw new Error('Nama maksimal 60 karakter')
+    if (!d?.id || !d?.name || d.name.trim().length === 0) throw new Error('id and name are required')
+    if (d.name.length > 60) throw new Error('Name max 60 characters')
     return d
   })
   .handler(async ({ data }) => {
@@ -54,7 +54,7 @@ export const renameWorkspaceFn = createServerFn({ method: 'POST' })
 export const deleteWorkspaceFn = createServerFn({ method: 'POST' })
   .validator((data: unknown) => {
     const d = data as { id: string }
-    if (!d?.id) throw new Error('id wajib')
+    if (!d?.id) throw new Error('id is required')
     return d
   })
   .handler(async ({ data }) => {
