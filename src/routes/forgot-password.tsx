@@ -93,7 +93,7 @@ function ForgotPassword() {
 
         <div className="relative max-w-md rounded-xl border border-white/10 bg-white/10 p-4 backdrop-blur">
           <p className="text-sm italic text-white/90">
-            "\u0022Save 5 hours every week searching for contract clauses. DocPro is now an essential assistant for our legal team.\u0022"
+            "Save 5 hours every week searching for contract clauses. DocPro is now an essential assistant for our legal team."
           </p>
           <div className="mt-3 flex items-center gap-2.5">
             <div className="grid h-8 w-8 place-items-center rounded-full bg-white/20 text-xs font-semibold">SW</div>
