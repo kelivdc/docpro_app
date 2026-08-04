@@ -4,7 +4,6 @@ import { eq, and, sql } from 'drizzle-orm'
 import { auth } from '../../lib/auth'
 import { db } from '../../lib/db'
 import { organizationMembers, type MemberRole, type MemberStatus } from '../../lib/schema/members'
-import { sendEmail, roleLabel } from '../email'
 import { workspaces } from '../../lib/schema/documents'
 
 export type { MemberRole, MemberStatus }
@@ -224,23 +223,28 @@ async function sendInvitationEmail(opts: {
 }) {
   const { to, inviteCode, inviterName, inviterEmail, ownerId, role, expiresAt, baseUrl } = opts
   try {
-    // Workspace info: default workspace (name + description), fallback to org name.
+    // Workspace info: default workspace (name, logo, description), org name for the company.
     let workspaceName = 'My Workspace'
-    let workspaceDescription = 'A shared knowledge base where your team can upload documents, search, and get AI answers.'
+    let workspaceDescription: string | null = null
+    let workspaceIcon = '🏛'
+    let workspaceColor = '#2563EB'
+    let organizationName: string | null = null
     try {
       const ws = await db.query.workspaces.findFirst({
         where: and(eq(workspaces.ownerId, ownerId), eq(workspaces.isDefault, true)),
-        columns: { name: true, description: true },
+        columns: { name: true, description: true, icon: true, color: true },
       })
       if (ws?.name) workspaceName = ws.name
       if (ws?.description) workspaceDescription = ws.description
+      if (ws?.icon) workspaceIcon = ws.icon
+      if (ws?.color) workspaceColor = ws.color
     } catch { /* keep defaults */ }
     try {
       const tm = await db.query.tenantMap.findFirst({
         where: eq(tenantMap.userId, ownerId),
         columns: { orgName: true },
       })
-      if (tm?.orgName) workspaceName = tm.orgName
+      if (tm?.orgName) organizationName = tm.orgName
     } catch { /* keep default */ }
 
     const acceptUrl = `${baseUrl}/invite/${inviteCode}`
@@ -252,12 +256,16 @@ async function sendInvitationEmail(opts: {
       timeZone: 'UTC',
     })
     const permissions = ROLE_PERMISSIONS[role] ?? ROLE_PERMISSIONS.member
+    const { sendEmail } = await import('../email')
     const { subject, text, html } = renderInvitationEmail({
       to,
       acceptUrl,
       inviterName,
       inviterEmail,
+      organizationName,
       workspaceName,
+      workspaceIcon,
+      workspaceColor,
       workspaceDescription,
       role,
       permissions,
@@ -271,11 +279,25 @@ async function sendInvitationEmail(opts: {
   }
 }
 
-const ROLE_PERMISSIONS: Record<MemberRole, string> = {
-  owner: 'Full access — manage everything including members, billing, and knowledge.',
-  admin: 'Full access to management and knowledge, including adding or removing members.',
-  member: 'Can upload knowledge, run AI searches, and chat with the knowledge base.',
-  viewer: 'Read-only access — view documents and use AI chat, without editing.',
+const ROLE_PERMISSIONS: Record<MemberRole, string[]> = {
+  owner: [
+    'Full access — manage everything, including members, billing, and knowledge',
+    'Upload and manage documents',
+    'Run AI searches and chat with the knowledge base',
+  ],
+  admin: [
+    'Add or remove members and manage their roles',
+    'Upload and manage documents',
+    'Run AI searches and chat with the knowledge base',
+  ],
+  member: [
+    'Upload documents',
+    'Run AI searches and chat with the knowledge base',
+  ],
+  viewer: [
+    'Read documents',
+    'Use AI chat',
+  ],
 }
 
 export interface InvitationEmailContent {
@@ -283,17 +305,85 @@ export interface InvitationEmailContent {
   acceptUrl: string
   inviterName: string
   inviterEmail: string
+  organizationName: string | null
   workspaceName: string
-  workspaceDescription: string
+  workspaceIcon: string
+  workspaceColor: string
+  workspaceDescription: string | null
   role: MemberRole
-  permissions: string
+  permissions: string[]
   days: number
   expiresLabel: string
 }
 
+const ROLE_LABELS: Record<MemberRole, string> = {
+  owner: 'Owner',
+  admin: 'Admin',
+  member: 'Member',
+  viewer: 'Viewer',
+}
+
+function roleLabel(role: MemberRole): string {
+  return ROLE_LABELS[role] ?? role
+}
+
+// Color scheme: 🟢 viewer, 🔵 member, 🟣 admin, 🟠 owner.
+const ROLE_BADGE: Record<MemberRole, { bg: string; color: string; dot: string }> = {
+  viewer: { bg: '#dcfce7', color: '#15803d', dot: '#22c55e' },
+  member: { bg: '#dbeafe', color: '#1d4ed8', dot: '#3b82f6' },
+  admin: { bg: '#ede9fe', color: '#6d28d9', dot: '#8b5cf6' },
+  owner: { bg: '#ffedd5', color: '#c2410c', dot: '#f97316' },
+}
+
+function roleBadgeHtml(role: MemberRole): string {
+  const b = ROLE_BADGE[role] ?? ROLE_BADGE.member
+  return `<span style="display:inline-flex;align-items:center;gap:6px;background:${b.bg};color:${b.color};font-weight:700;font-size:12px;padding:3px 10px;border-radius:999px;line-height:1.4;"><span style="width:7px;height:7px;border-radius:50%;background:${b.dot};"></span>${roleLabel(role)}</span>`
+}
+
 // Pure builder so the template can be inspected/tested without sending.
 export function renderInvitationEmail(p: InvitationEmailContent): { subject: string; text: string; html: string } {
-  const { to, acceptUrl, inviterName, inviterEmail, workspaceName, workspaceDescription, role, permissions, days, expiresLabel } = p
+  const {
+    to,
+    acceptUrl,
+    inviterName,
+    inviterEmail,
+    organizationName,
+    workspaceName,
+    workspaceIcon,
+    workspaceColor,
+    workspaceDescription,
+    role,
+    permissions,
+    days,
+    expiresLabel,
+  } = p
+
+  const orgRow = organizationName
+    ? `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <span style="font-size:13px;color:#6b7280;">Organization</span>
+              <span style="font-size:14px;font-weight:700;color:#111827;">${organizationName}</span>
+            </div>`
+    : ''
+
+  const aboutRow = workspaceDescription
+    ? `
+            <div style="margin-bottom:12px;">
+              <div style="font-size:13px;color:#6b7280;margin-bottom:2px;">About this workspace</div>
+              <div style="font-size:14px;color:#374151;">${workspaceDescription}</div>
+            </div>`
+    : ''
+
+  const permissionList = permissions
+    .map(
+      (perm) => `
+            <li style="display:flex;gap:8px;align-items:flex-start;margin-bottom:6px;font-size:14px;line-height:1.45;color:#374151;">
+              <span style="color:#2563eb;line-height:1.45;">✓</span>
+              <span>${perm}</span>
+            </li>`,
+    )
+    .join('')
+
   const html = `
     <div style="background:#f6f7f9;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
       <div style="max-width:540px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #eceef2;">
@@ -313,21 +403,23 @@ export function renderInvitationEmail(p: InvitationEmailContent): { subject: str
               <span style="font-size:13px;color:#6b7280;">Invited by</span>
               <span style="font-size:14px;font-weight:700;color:#111827;">${inviterName}${inviterEmail ? ` <a href="mailto:${inviterEmail}" style="color:#2563eb;text-decoration:none;font-weight:600;">&lt;${inviterEmail}&gt;</a>` : ''}</span>
             </div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+            ${orgRow}
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
               <span style="font-size:13px;color:#6b7280;">Workspace</span>
-              <span style="font-size:14px;font-weight:700;color:#111827;">${workspaceName}</span>
+              <span style="display:inline-flex;align-items:center;gap:8px;max-width:70%;">
+                <span style="width:28px;height:28px;flex:0 0 28px;border-radius:8px;background:${workspaceColor}22;display:inline-flex;align-items:center;justify-content:center;font-size:16px;line-height:1;">${workspaceIcon}</span>
+                <span style="font-size:14px;font-weight:700;color:#111827;">${workspaceName}</span>
+              </span>
             </div>
-            <div style="margin-bottom:12px;">
-              <div style="font-size:13px;color:#6b7280;margin-bottom:2px;">About this workspace</div>
-              <div style="font-size:14px;color:#374151;">${workspaceDescription}</div>
-            </div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+            ${aboutRow}
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
               <span style="font-size:13px;color:#6b7280;">Your role</span>
-              <span style="font-size:14px;font-weight:700;color:#111827;">${roleLabel(role)}</span>
+              ${roleBadgeHtml(role)}
             </div>
             <div>
-              <div style="font-size:13px;color:#6b7280;margin-bottom:2px;">Permissions</div>
-              <div style="font-size:14px;color:#374151;">${permissions}</div>
+              <div style="font-size:13px;color:#6b7280;margin-bottom:6px;">Permissions</div>
+              <ul style="margin:0;padding:0;list-style:none;">${permissionList}
+              </ul>
             </div>
           </div>
 
@@ -337,7 +429,7 @@ export function renderInvitationEmail(p: InvitationEmailContent): { subject: str
           </div>
 
           <a href="${acceptUrl}" style="display:block;text-align:center;background:#2563eb;color:#ffffff;font-weight:700;font-size:15px;padding:14px 24px;border-radius:12px;text-decoration:none;">
-            Accept Invitation
+            Join Workspace
           </a>
 
           <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;text-align:center;">
@@ -354,17 +446,22 @@ export function renderInvitationEmail(p: InvitationEmailContent): { subject: str
       </div>
     </div>
   `
+
   const text = [
     `You've been invited to collaborate on DocPro. You'll be able to access your team's`,
     `knowledge base and use AI to search, summarize, and answer questions from company documents.`,
     '',
     `Invited by: ${inviterName}${inviterEmail ? ` (${inviterEmail})` : ''}`,
-    `Workspace: ${workspaceName}`,
-    `About: ${workspaceDescription}`,
-    `Role: ${roleLabel(role)} — ${permissions}`,
+    ...(organizationName ? [`Organization: ${organizationName}`] : []),
+    `Workspace: ${workspaceIcon} ${workspaceName}`,
+    ...(workspaceDescription ? [`About: ${workspaceDescription}`] : []),
+    `Role: ${roleLabel(role)}`,
+    'Permissions:',
+    ...permissions.map((perm) => `  - ${perm}`),
+    '',
     `This invitation expires in ${days} day${days === 1 ? '' : 's'} (${expiresLabel}).`,
     '',
-    `Accept the invitation: ${acceptUrl}`,
+    `Join the workspace: ${acceptUrl}`,
     '',
     'Need help? support@docpro.ai',
     `This invitation was sent to ${to}`,
@@ -502,8 +599,11 @@ export interface InvitationByCode {
   email: string
   inviterName: string
   inviterEmail: string
+  organizationName: string | null
   workspaceName: string
-  workspaceDescription: string
+  workspaceIcon: string
+  workspaceColor: string
+  workspaceDescription: string | null
   role: MemberRole
   status: MemberStatus
   expiresAt: string | null
@@ -537,21 +637,26 @@ export const getInvitationByCodeFn = createServerFn({ method: 'GET' })
     } catch { /* keep default */ }
 
     let workspaceName = 'My Workspace'
-    let workspaceDescription = 'A shared knowledge base where your team can upload documents, search, and get AI answers.'
+    let workspaceDescription: string | null = null
+    let workspaceIcon = '🏛'
+    let workspaceColor = '#2563EB'
+    let organizationName: string | null = null
     try {
       const ws = await db.query.workspaces.findFirst({
         where: and(eq(workspaces.ownerId, row.ownerId), eq(workspaces.isDefault, true)),
-        columns: { name: true, description: true },
+        columns: { name: true, description: true, icon: true, color: true },
       })
       if (ws?.name) workspaceName = ws.name
       if (ws?.description) workspaceDescription = ws.description
+      if (ws?.icon) workspaceIcon = ws.icon
+      if (ws?.color) workspaceColor = ws.color
     } catch { /* keep defaults */ }
     try {
       const tm = await db.query.tenantMap.findFirst({
         where: eq(tenantMap.userId, row.ownerId),
         columns: { orgName: true },
       })
-      if (tm?.orgName) workspaceName = tm.orgName
+      if (tm?.orgName) organizationName = tm.orgName
     } catch { /* keep default */ }
 
     const expiresAt = row.expiresAt ? new Date(row.expiresAt) : null
@@ -564,7 +669,10 @@ export const getInvitationByCodeFn = createServerFn({ method: 'GET' })
       email: row.email,
       inviterName,
       inviterEmail,
+      organizationName,
       workspaceName,
+      workspaceIcon,
+      workspaceColor,
       workspaceDescription,
       role: row.role as MemberRole,
       status: row.status as MemberStatus,

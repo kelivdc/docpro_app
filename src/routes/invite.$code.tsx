@@ -30,11 +30,25 @@ const ROLE_LABELS: Record<MemberRole, string> = {
   viewer: 'Viewer',
 }
 
-const ROLE_PERMISSIONS: Record<MemberRole, string> = {
-  owner: 'Full access — manage everything including members, billing, and knowledge.',
-  admin: 'Full access to management and knowledge, including adding or removing members.',
-  member: 'Can upload knowledge, run AI searches, and chat with the knowledge base.',
-  viewer: 'Read-only access — view documents and use AI chat, without editing.',
+const ROLE_PERMISSIONS: Record<MemberRole, string[]> = {
+  owner: [
+    'Full access — manage everything, including members, billing, and knowledge',
+    'Upload and manage documents',
+    'Run AI searches and chat with the knowledge base',
+  ],
+  admin: [
+    'Add or remove members and manage their roles',
+    'Upload and manage documents',
+    'Run AI searches and chat with the knowledge base',
+  ],
+  member: [
+    'Upload documents',
+    'Run AI searches and chat with the knowledge base',
+  ],
+  viewer: [
+    'Read documents',
+    'Use AI chat',
+  ],
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -50,6 +64,23 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
       <span className="shrink-0 text-sm text-[var(--mutfg)]">{label}</span>
       <span className="text-right text-sm font-semibold text-[var(--fg)]">{children}</span>
     </div>
+  )
+}
+
+// Color scheme: 🟢 viewer, 🔵 member, 🟣 admin, 🟠 owner.
+function RoleBadge({ role }: { role: MemberRole }) {
+  const styles: Record<MemberRole, { bg: string; text: string; dot: string }> = {
+    viewer: { bg: 'bg-emerald-500/10', text: 'text-emerald-600', dot: 'bg-emerald-500' },
+    member: { bg: 'bg-blue-500/10', text: 'text-blue-600', dot: 'bg-blue-500' },
+    admin: { bg: 'bg-violet-500/10', text: 'text-violet-600', dot: 'bg-violet-500' },
+    owner: { bg: 'bg-orange-500/10', text: 'text-orange-600', dot: 'bg-orange-500' },
+  }
+  const s = styles[role] ?? styles.member
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${s.bg} ${s.text} border-transparent`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />
+      {ROLE_LABELS[role] ?? role}
+    </span>
   )
 }
 
@@ -114,15 +145,38 @@ function InvitePage() {
               {inv.inviterName}
               {inv.inviterEmail && <span className="block text-xs font-normal text-[var(--mutfg)]">{inv.inviterEmail}</span>}
             </DetailRow>
-            <DetailRow label="Workspace">{inv.workspaceName}</DetailRow>
-            <div className="py-2">
-              <div className="text-sm text-[var(--mutfg)]">About this workspace</div>
-              <div className="mt-1 text-sm text-[var(--fg)]">{inv.workspaceDescription}</div>
+            {inv.organizationName && <DetailRow label="Organization">{inv.organizationName}</DetailRow>}
+            <div className="flex items-start justify-between gap-4 py-2">
+              <span className="shrink-0 text-sm text-[var(--mutfg)]">Workspace</span>
+              <span className="flex items-center gap-2 text-right text-sm font-semibold text-[var(--fg)]">
+                <span
+                  className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-base leading-none"
+                  style={{ backgroundColor: `${inv.workspaceColor}22`, color: inv.workspaceColor }}
+                >
+                  {inv.workspaceIcon}
+                </span>
+                {inv.workspaceName}
+              </span>
             </div>
-            <DetailRow label="Role">{ROLE_LABELS[inv.role] ?? inv.role}</DetailRow>
+            {inv.workspaceDescription && (
+              <div className="py-2">
+                <div className="text-sm text-[var(--mutfg)]">About this workspace</div>
+                <div className="mt-1 text-sm text-[var(--fg)]">{inv.workspaceDescription}</div>
+              </div>
+            )}
+            <DetailRow label="Role">
+              <RoleBadge role={inv.role} />
+            </DetailRow>
             <div className="py-2">
               <div className="text-sm text-[var(--mutfg)]">Permissions</div>
-              <div className="mt-1 text-sm text-[var(--fg)]">{ROLE_PERMISSIONS[inv.role] ?? ''}</div>
+              <ul className="mt-1 space-y-1.5">
+                {(ROLE_PERMISSIONS[inv.role] ?? []).map((perm) => (
+                  <li key={perm} className="flex items-start gap-2 text-sm text-[var(--fg)]">
+                    <span className="mt-0.5 text-emerald-600">✓</span>
+                    <span>{perm}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
             <DetailRow label="Expires">
               {inv.expiresInDays !== null
@@ -158,7 +212,7 @@ function InvitePage() {
                   disabled={busy}
                   className="flex-1 rounded-xl bg-emerald-600 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
                 >
-                  {busy ? 'Processing…' : 'Accept Invitation'}
+                  {busy ? 'Processing…' : 'Join Workspace'}
                 </button>
                 <button
                   onClick={() => handleRespond('rejected')}

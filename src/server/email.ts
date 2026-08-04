@@ -41,14 +41,3 @@ export async function sendEmail(opts: MailOptions): Promise<boolean> {
     return false
   }
 }
-
-const roleLabels: Record<string, string> = {
-  owner: 'Owner',
-  admin: 'Admin',
-  member: 'Member',
-  viewer: 'Viewer',
-}
-
-export function roleLabel(role: string): string {
-  return roleLabels[role] ?? role
-}

@@ -58,11 +58,12 @@ function StatCard({
 }
 
 function RoleBadge({ role }: { role: MemberRole }) {
+  // Color scheme: 🟢 viewer, 🔵 member, 🟣 admin, 🟠 owner.
   const styles: Record<MemberRole, { bg: string; text: string; border: string; label: string }> = {
-    owner: { bg: 'bg-indigo-500/10', text: 'text-indigo-600', border: 'border-indigo-500/20', label: 'Owner' },
-    admin: { bg: 'bg-blue-500/10', text: 'text-blue-600', border: 'border-blue-500/20', label: 'Admin' },
-    member: { bg: 'bg-emerald-500/10', text: 'text-emerald-600', border: 'border-emerald-500/20', label: 'Member' },
-    viewer: { bg: 'bg-slate-500/10', text: 'text-slate-600', border: 'border-slate-500/20', label: 'Viewer' },
+    owner: { bg: 'bg-orange-500/10', text: 'text-orange-600', border: 'border-orange-500/20', label: 'Owner' },
+    admin: { bg: 'bg-violet-500/10', text: 'text-violet-600', border: 'border-violet-500/20', label: 'Admin' },
+    member: { bg: 'bg-blue-500/10', text: 'text-blue-600', border: 'border-blue-500/20', label: 'Member' },
+    viewer: { bg: 'bg-emerald-500/10', text: 'text-emerald-600', border: 'border-emerald-500/20', label: 'Viewer' },
   }
   const s = styles[role] ?? styles.member
   return (
