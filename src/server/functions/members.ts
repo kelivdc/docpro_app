@@ -4,6 +4,7 @@ import { eq, and, sql } from 'drizzle-orm'
 import { auth } from '../../lib/auth'
 import { db } from '../../lib/db'
 import { organizationMembers, type MemberRole, type MemberStatus } from '../../lib/schema/members'
+import { sendEmail, getAppBaseUrl, roleLabel } from '../email'
 
 export type { MemberRole, MemberStatus }
 import { tenantMap } from '../../lib/schema/tenant'
@@ -109,7 +110,11 @@ export const inviteMemberFn = createServerFn({ method: 'POST' })
     return { email, role }
   })
   .handler(async ({ data }): Promise<{ ok: true; member: MemberView }> => {
-    const userId = await currentUserId()
+    const session = await auth.api.getSession({ headers: getRequest()?.headers })
+    const userId = session?.user?.id
+    if (!userId) throw new Error('UNAUTHENTICATED')
+    const inviterName = session?.user?.name || data.email
+    const inviterEmail = session?.user?.email ?? ''
 
     await ensureMembersTableExists()
 
@@ -140,6 +145,18 @@ export const inviteMemberFn = createServerFn({ method: 'POST' })
       expiresAt,
     })
 
+    // Send invitation email (non-blocking on failure so the invite still succeeds).
+    void sendInvitationEmail({
+      to: data.email,
+      memberId: id,
+      inviterName,
+      inviterEmail,
+      ownerId: userId,
+      role: data.role,
+      expiresAt,
+      baseUrl: getAppBaseUrl(),
+    })
+
     return {
       ok: true,
       member: {
@@ -155,6 +172,98 @@ export const inviteMemberFn = createServerFn({ method: 'POST' })
       },
     }
   })
+
+async function sendInvitationEmail(opts: {
+  to: string
+  memberId: string
+  inviterName: string
+  inviterEmail: string
+  ownerId: string
+  role: MemberRole
+  expiresAt: Date
+  baseUrl: string
+}) {
+  const { to, memberId, inviterName, inviterEmail, ownerId, role, expiresAt, baseUrl } = opts
+  try {
+    let orgName = 'their organization'
+    try {
+      const tm = await db.query.tenantMap.findFirst({
+        where: eq(tenantMap.userId, ownerId),
+        columns: { orgName: true },
+      })
+      if (tm?.orgName) orgName = tm.orgName
+    } catch { /* keep default */ }
+
+    const acceptUrl = `${baseUrl}/dashboard/members`
+    const expiresLabel = expiresAt.toLocaleDateString('en-US', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'UTC',
+    })
+
+    const html = `
+      <div style="background:#f6f7f9;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+        <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #eceef2;">
+          <div style="background:linear-gradient(135deg,#2563eb,#4f46e5);padding:28px 32px;">
+            <div style="color:#ffffff;font-size:22px;font-weight:800;">DocPro</div>
+          </div>
+          <div style="padding:32px;">
+            <h1 style="margin:0 0 8px;font-size:20px;color:#111827;">You've been invited to join a team</h1>
+            <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#4b5563;">
+              <strong style="color:#111827;">${inviterName}</strong> (${
+                inviterEmail ? `<a href="mailto:${inviterEmail}" style="color:#2563eb;">${inviterEmail}</a>` : ''
+              })
+              has invited you to join <strong style="color:#111827;">${orgName}</strong> on DocPro.
+            </p>
+
+            <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+              <tr>
+                <td style="padding:10px 12px;font-size:13px;color:#6b7280;width:120px;">Organization</td>
+                <td style="padding:10px 12px;font-size:14px;font-weight:700;color:#111827;">${orgName}</td>
+              </tr>
+              <tr>
+                <td style="padding:10px 12px;font-size:13px;color:#6b7280;">Your role</td>
+                <td style="padding:10px 12px;font-size:14px;font-weight:700;color:#111827;">${roleLabel(role)}</td>
+              </tr>
+              <tr>
+                <td style="padding:10px 12px;font-size:13px;color:#6b7280;">Invitation expires</td>
+                <td style="padding:10px 12px;font-size:14px;font-weight:700;color:#111827;">${expiresLabel}</td>
+              </tr>
+            </table>
+
+            <a href="${acceptUrl}" style="display:block;text-align:center;background:#2563eb;color:#ffffff;font-weight:700;font-size:15px;padding:14px 24px;border-radius:12px;text-decoration:none;">
+              View Invitation
+            </a>
+
+            <p style="margin:24px 0 0;font-size:13px;line-height:1.6;color:#6b7280;">
+              If you don't have a DocPro account yet, create one with the same email address
+              (${to}), then open the invitation from the
+              <strong>Team Members</strong> page and click <strong>Accept</strong>.
+            </p>
+            <p style="margin:16px 0 0;font-size:12px;color:#9ca3af;">
+              If the button doesn't work, copy this link into your browser:<br/>
+              <a href="${acceptUrl}" style="color:#2563eb;word-break:break-all;">${acceptUrl}</a>
+            </p>
+          </div>
+        </div>
+      </div>
+    `
+    const text = [
+      `You've been invited to join ${orgName} on DocPro.`,
+      `Invited by ${inviterName}${inviterEmail ? ` (${inviterEmail})` : ''}.`,
+      `Role: ${roleLabel(role)}`,
+      `This invitation expires on ${expiresLabel}.`,
+      '',
+      `To accept, open ${acceptUrl}, sign in or create an account with ${to},`,
+      `and click Accept on the Team Members page.`,
+    ].join('\n')
+
+    await sendEmail({ to, subject: `You've been invited to join ${orgName} on DocPro`, text, html })
+  } catch (e) {
+    console.error(`[members] failed to send invitation email to ${to} (${memberId}):`, e)
+  }
+}
 
 export const updateMemberRoleFn = createServerFn({ method: 'POST' })
   .validator((data: unknown) => {
