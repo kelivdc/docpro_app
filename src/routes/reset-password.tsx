@@ -18,7 +18,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   INVALID_TOKEN: 'This reset link is invalid or has expired. Please request a new one.',
 }
 
-export default function ResetPasswordPage() {
+function ResetPasswordPage() {
   const { token, error: queryError } = Route.useSearch()
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
