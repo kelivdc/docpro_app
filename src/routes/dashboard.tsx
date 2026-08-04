@@ -24,6 +24,10 @@ export const Route = createFileRoute('/dashboard')({
         throw redirect({ to: '/login' })
       }
 
+      if (!session.user.emailVerified) {
+        throw redirect({ to: '/verify-email', search: { email: session.user.email ?? '' } })
+      }
+
       const { blocked } = await checkAccountBlocked()
       if (blocked) {
         throw redirect({ to: '/login', search: { blocked } })

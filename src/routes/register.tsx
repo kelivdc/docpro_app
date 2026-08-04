@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import Logo from '../components/Logo'
-import { signIn, signUp } from '../lib/auth-client'
+import { signIn, signUp, sendVerificationEmail } from '../lib/auth-client'
 
 export const Route = createFileRoute('/register')({
   component: Register,
@@ -22,6 +22,10 @@ function Register() {
   const [showPw, setShowPw] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
+  const [verificationSent, setVerificationSent] = useState(false)
+  const [emailForVerification, setEmailForVerification] = useState('')
+  const [resending, setResending] = useState(false)
+  const [resendOk, setResendOk] = useState(false)
 
   function validate() {
     const e: Record<string, string> = {}
@@ -42,24 +46,45 @@ function Register() {
     setErrors(e)
     if (Object.keys(e).length > 0) return
 
-    const { error } = await signUp.email(
-      {
-        email,
-        password,
-        name: nama,
-        callbackURL: '/dashboard',
-      },
-      {
-        onRequest: () => setSubmitting(true),
-        onError: (ctx) => {
-          setSubmitting(false)
-          setErrors({ email: ctx.error.message || 'Registration failed. Please try again.' })
-        },
-      },
-    )
+    setSubmitting(true)
+    const { data, error } = await signUp.email({
+      email,
+      password,
+      name: nama,
+      callbackURL: '/dashboard',
+    })
+    setSubmitting(false)
 
-    if (error) return
+    if (error) {
+      setErrors({ email: error.message || 'Registration failed. Please try again.' })
+      return
+    }
+
+    // With requireEmailVerification enabled, sign-up doesn't create a session.
+    // Show the "check your email" state instead of redirecting.
+    if (!data?.token) {
+      setEmailForVerification(email)
+      setVerificationSent(true)
+      return
+    }
+
     navigate({ to: '/dashboard' })
+  }
+
+  async function handleResendVerification() {
+    if (!emailForVerification) return
+    setResending(true)
+    setResendOk(false)
+    const { error } = await sendVerificationEmail({
+      email: emailForVerification,
+      callbackURL: '/dashboard',
+    })
+    setResending(false)
+    if (error) {
+      setErrors({ email: error.message || 'Failed to resend verification email.' })
+    } else {
+      setResendOk(true)
+    }
   }
 
   const pwStrength = password.length === 0 ? 0 : password.length < 8 ? 1 : 3
@@ -123,21 +148,51 @@ function Register() {
           </div>
 
           <div className="card p-6 sm:p-8">
-            {/* Tabs */}
-            <div className="mb-6 inline-flex w-full rounded-lg bg-[var(--muted)] p-0.5 text-sm">
-              <Link to="/login" className="flex-1 rounded-md px-3 py-2 text-center text-[var(--fg-soft)]">
-                Sign In
-              </Link>
-              <button className="seg-active flex-1 rounded-md px-3 py-2 text-center font-medium">Register</button>
-            </div>
+            {verificationSent ? (
+              <div className="text-center">
+                <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full bg-emerald-500/10 text-emerald-600">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" /></svg>
+                </div>
+                <h2 className="text-2xl font-semibold tracking-tight">Verify your email</h2>
+                <p className="mt-2 text-sm text-[var(--mutfg)]">
+                  We sent a verification link to{' '}
+                  <span className="font-semibold text-[var(--fg)]">{emailForVerification}</span>.{' '}
+                  Click the link in the email to activate your account.
+                </p>
+                <div className="mt-6">
+                  <button
+                    type="button"
+                    onClick={handleResendVerification}
+                    disabled={resending}
+                    className="text-sm font-semibold text-blue-600 hover:underline disabled:opacity-50"
+                  >
+                    {resending ? 'Sending…' : 'Resend verification email'}
+                  </button>
+                  {resendOk && <p className="mt-2 text-xs text-emerald-600">Verification email resent.</p>}
+                </div>
+                <div className="mt-6">
+                  <Link to="/login" search={{ blocked: undefined }} className="text-sm font-semibold text-blue-600 hover:underline">
+                    Go to Sign In
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Tabs */}
+                <div className="mb-6 inline-flex w-full rounded-lg bg-[var(--muted)] p-0.5 text-sm">
+                  <Link to="/login" search={{ blocked: undefined }} className="flex-1 rounded-md px-3 py-2 text-center text-[var(--fg-soft)]">
+                    Sign In
+                  </Link>
+                  <button className="seg-active flex-1 rounded-md px-3 py-2 text-center font-medium">Register</button>
+                </div>
 
-            {/* Heading */}
-            <div className="mb-6">
-              <h2 className="text-2xl font-semibold tracking-tight">Create free account</h2>
-              <p className="mt-1 text-sm text-[var(--mutfg)]">Start managing your Knowledge with AI in 2 minutes.</p>
-            </div>
+                {/* Heading */}
+                <div className="mb-6">
+                  <h2 className="text-2xl font-semibold tracking-tight">Create free account</h2>
+                  <p className="mt-1 text-sm text-[var(--mutfg)]">Start managing your Knowledge with AI in 2 minutes.</p>
+                </div>
 
-            <form className="space-y-4" onSubmit={handleSubmit} noValidate>
+                <form className="space-y-4" onSubmit={handleSubmit} noValidate>
               <button
                 type="button"
                 className="demo-button demo-button-secondary w-full justify-center gap-2.5"
@@ -295,17 +350,23 @@ function Register() {
                 {submitting ? 'Processing…' : 'Register Free'}
               </button>
             </form>
+          </>
+          )}
           </div>
 
-          <p className="mt-6 text-center text-sm text-[var(--mutfg)]">
-            Already have an account?{' '}
-            <Link to="/login" className="font-semibold text-blue-600 dark:text-blue-400">
-              Sign In
-            </Link>
-          </p>
-          <p className="mt-6 text-center text-[13px] text-[var(--mutfg)]">
-            We never share your data to train public AI models.
-          </p>
+          {!verificationSent && (
+            <>
+              <p className="mt-6 text-center text-sm text-[var(--mutfg)]">
+                Already have an account?{' '}
+                <Link to="/login" search={{ blocked: undefined }} className="font-semibold text-blue-600 dark:text-blue-400">
+                  Sign In
+                </Link>
+              </p>
+              <p className="mt-6 text-center text-[13px] text-[var(--mutfg)]">
+                We never share your data to train public AI models.
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>

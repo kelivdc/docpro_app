@@ -6,7 +6,7 @@ export const authClient = createAuthClient({
   plugins: [organizationClient()],
 })
 
-export const { signIn, signUp, signOut, useSession, requestPasswordReset } =
+export const { signIn, signUp, signOut, useSession, requestPasswordReset, resetPassword, sendVerificationEmail } =
   authClient as unknown as {
     signIn: typeof authClient.signIn
     signUp: typeof authClient.signUp
@@ -16,4 +16,12 @@ export const { signIn, signUp, signOut, useSession, requestPasswordReset } =
       email: string
       redirectTo?: string
     }) => Promise<{ error?: { message?: string } | null }>
+    resetPassword: (opts: {
+      newPassword: string
+      token: string
+    }) => Promise<{ error?: { message?: string } | null; data?: { status: boolean } }>
+    sendVerificationEmail: (opts: {
+      email: string
+      callbackURL?: string
+    }) => Promise<{ error?: { message?: string } | null; data?: { status: boolean } }>
   }

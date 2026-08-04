@@ -10,12 +10,12 @@ import { getSessionFromServer } from '../lib/get-session'
 import type { MemberRole } from '../server/functions/members'
 
 export const Route = createFileRoute('/invite/$code')({
-  loader: async ({ params }): Promise<{ inv: InvitationByCode | null; loggedIn: boolean }> => {
+  loader: async ({ params }): Promise<{ inv: InvitationByCode | null; loggedIn: boolean; sessionEmail: string | null }> => {
     const [inv, session] = await Promise.all([
       getInvitationByCodeFn({ data: { code: params.code } }),
       getSessionFromServer(),
     ])
-    return { inv, loggedIn: !!session?.user }
+    return { inv, loggedIn: !!session?.user, sessionEmail: session?.user?.email ?? null }
   },
   component: InvitePage,
   head: () => ({
@@ -85,7 +85,7 @@ function RoleBadge({ role }: { role: MemberRole }) {
 }
 
 function InvitePage() {
-  const { inv, loggedIn } = Route.useLoaderData()
+  const { inv, loggedIn, sessionEmail } = Route.useLoaderData()
   const [busy, setBusy] = useState(false)
   const [responded, setResponded] = useState<'accepted' | 'rejected' | null>(null)
   const [error, setError] = useState('')
@@ -108,7 +108,9 @@ function InvitePage() {
   }
 
   const isPending = inv.status === 'pending' && responded === null
-  const showButtons = isPending && loggedIn
+  const emailMatches =
+    !!sessionEmail && inv.email.toLowerCase() === sessionEmail.toLowerCase()
+  const showButtons = isPending && loggedIn && emailMatches
   const finalStatus = responded ?? (inv.status === 'pending' ? 'pending' : inv.status)
 
   async function handleRespond(action: 'accepted' | 'rejected') {
@@ -237,6 +239,23 @@ function InvitePage() {
                     Create account
                   </Link>
                 </div>
+              </div>
+            )}
+
+            {!showButtons && responded === null && inv.status === 'pending' && loggedIn && !emailMatches && (
+              <div className="space-y-3">
+                <p className="text-center text-sm text-[var(--mutfg)]">
+                  This invitation was sent to <span className="font-semibold text-[var(--fg)]">{inv.email}</span>, but you're
+                  signed in as <span className="font-semibold text-[var(--fg)]">{sessionEmail}</span>. Sign in with the invited
+                  email to join this workspace.
+                </p>
+                <Link
+                  to="/login"
+                  search={{ blocked: undefined }}
+                  className="flex-1 rounded-xl bg-blue-600 py-2.5 text-center text-sm font-bold text-white hover:bg-blue-700"
+                >
+                  Sign in as {inv.email}
+                </Link>
               </div>
             )}
 

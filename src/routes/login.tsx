@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import Logo from '../components/Logo'
-import { signIn } from '../lib/auth-client'
+import { signIn, sendVerificationEmail } from '../lib/auth-client'
 
 export const Route = createFileRoute('/login')({
   validateSearch: (s: Record<string, unknown>) => ({
@@ -22,6 +22,9 @@ function Login() {
   const [password, setPassword] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
+  const [needsVerification, setNeedsVerification] = useState(false)
+  const [resending, setResending] = useState(false)
+  const [resendOk, setResendOk] = useState(false)
 
   const blockedMsg = blocked === 'hard'
     ? 'Your account and all associated data have been permanently deleted.'
@@ -39,10 +42,13 @@ function Login() {
 
   async function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault()
+    setNeedsVerification(false)
+    setResendOk(false)
     const e = validate()
     setErrors(e)
     if (Object.keys(e).length > 0) return
 
+    setSubmitting(true)
     const { error } = await signIn.email(
       {
         email,
@@ -51,16 +57,35 @@ function Login() {
         callbackURL: '/dashboard',
       },
       {
-        onRequest: () => setSubmitting(true),
         onError: (ctx) => {
           setSubmitting(false)
-          setErrors({ password: ctx.error.message || 'Invalid email or password.' })
+          const msg = ctx.error.message || 'Invalid email or password.'
+          if (msg.toLowerCase().includes('verified')) {
+            setNeedsVerification(true)
+          }
+          setErrors({ password: msg })
         },
       },
     )
 
     if (error) return
     navigate({ to: '/dashboard' })
+  }
+
+  async function handleResendVerification() {
+    if (!email) return
+    setResending(true)
+    setResendOk(false)
+    const { error } = await sendVerificationEmail({
+      email,
+      callbackURL: '/dashboard',
+    })
+    setResending(false)
+    if (error) {
+      setErrors({ password: error.message || 'Failed to resend verification email.' })
+    } else {
+      setResendOk(true)
+    }
   }
 
   const fieldCls = (key: string) =>
@@ -216,6 +241,20 @@ function Login() {
                   />
                 </div>
                 {errors.password && <p className="mt-1.5 text-xs text-red-600">{errors.password}</p>}
+                {needsVerification && (
+                  <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-700">
+                    <p>Your email isn't verified yet. Check your inbox or resend the verification email.</p>
+                    <button
+                      type="button"
+                      onClick={handleResendVerification}
+                      disabled={resending}
+                      className="mt-2 font-semibold text-blue-600 hover:underline disabled:opacity-50"
+                    >
+                      {resending ? 'Sending…' : 'Resend verification email'}
+                    </button>
+                    {resendOk && <p className="mt-1 text-emerald-600">Verification email resent.</p>}
+                  </div>
+                )}
               </div>
 
               <label className="flex items-center gap-2 text-sm text-[var(--fg-soft)]">

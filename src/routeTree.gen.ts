@@ -9,7 +9,9 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PricingRouteImport } from './routes/pricing'
@@ -33,9 +35,19 @@ import { Route as DashboardCategoriesRouteImport } from './routes/dashboard/cate
 import { Route as ApiTtsRouteImport } from './routes/api/tts'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
+const VerifyEmailRoute = VerifyEmailRouteImport.update({
+  id: '/verify-email',
+  path: '/verify-email',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RegisterRoute = RegisterRouteImport.update({
@@ -161,7 +173,9 @@ export interface FileRoutesByFullPath {
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
+  '/verify-email': typeof VerifyEmailRoute
   '/api/tts': typeof ApiTtsRoute
   '/dashboard/categories': typeof DashboardCategoriesRoute
   '/dashboard/chat': typeof DashboardChatRoute
@@ -185,7 +199,9 @@ export interface FileRoutesByTo {
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
+  '/verify-email': typeof VerifyEmailRoute
   '/api/tts': typeof ApiTtsRoute
   '/dashboard/categories': typeof DashboardCategoriesRoute
   '/dashboard/chat': typeof DashboardChatRoute
@@ -211,7 +227,9 @@ export interface FileRoutesById {
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
+  '/verify-email': typeof VerifyEmailRoute
   '/api/tts': typeof ApiTtsRoute
   '/dashboard/categories': typeof DashboardCategoriesRoute
   '/dashboard/chat': typeof DashboardChatRoute
@@ -238,7 +256,9 @@ export interface FileRouteTypes {
     | '/pricing'
     | '/privacy'
     | '/register'
+    | '/reset-password'
     | '/terms'
+    | '/verify-email'
     | '/api/tts'
     | '/dashboard/categories'
     | '/dashboard/chat'
@@ -262,7 +282,9 @@ export interface FileRouteTypes {
     | '/pricing'
     | '/privacy'
     | '/register'
+    | '/reset-password'
     | '/terms'
+    | '/verify-email'
     | '/api/tts'
     | '/dashboard/categories'
     | '/dashboard/chat'
@@ -287,7 +309,9 @@ export interface FileRouteTypes {
     | '/pricing'
     | '/privacy'
     | '/register'
+    | '/reset-password'
     | '/terms'
+    | '/verify-email'
     | '/api/tts'
     | '/dashboard/categories'
     | '/dashboard/chat'
@@ -313,7 +337,9 @@ export interface RootRouteChildren {
   PricingRoute: typeof PricingRoute
   PrivacyRoute: typeof PrivacyRoute
   RegisterRoute: typeof RegisterRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   TermsRoute: typeof TermsRoute
+  VerifyEmailRoute: typeof VerifyEmailRoute
   ApiTtsRoute: typeof ApiTtsRoute
   InviteCodeRoute: typeof InviteCodeRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -321,11 +347,25 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/verify-email': {
+      id: '/verify-email'
+      path: '/verify-email'
+      fullPath: '/verify-email'
+      preLoaderRoute: typeof VerifyEmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/terms': {
       id: '/terms'
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/register': {
@@ -523,7 +563,9 @@ const rootRouteChildren: RootRouteChildren = {
   PricingRoute: PricingRoute,
   PrivacyRoute: PrivacyRoute,
   RegisterRoute: RegisterRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   TermsRoute: TermsRoute,
+  VerifyEmailRoute: VerifyEmailRoute,
   ApiTtsRoute: ApiTtsRoute,
   InviteCodeRoute: InviteCodeRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

@@ -30,12 +30,16 @@ function ForgotPassword() {
     }
     setError('')
     setSubmitting(true)
-    await requestPasswordReset({
+    const { error } = await requestPasswordReset({
       email,
       redirectTo: '/reset-password',
     })
     setSubmitting(false)
-    setSent(true)
+    if (error) {
+      setError(error.message || 'Failed to send reset link. Please try again.')
+    } else {
+      setSent(true)
+    }
   }
 
   return (
@@ -122,7 +126,7 @@ function ForgotPassword() {
                 <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-[var(--fg)]">
                   If email <span className="font-semibold">{email}</span> is registered, a reset link has been sent. Check your inbox.
                 </div>
-                <Link to="/login" className="demo-button w-full justify-center">
+                <Link to="/login" search={{ blocked: undefined }} className="demo-button w-full justify-center">
                   Back to sign in
                 </Link>
               </div>
@@ -154,7 +158,7 @@ function ForgotPassword() {
 
                 <p className="text-center text-sm text-[var(--mutfg)]">
                   Remember your password?{' '}
-                  <Link to="/login" className="font-semibold text-blue-600 hover:underline">
+                  <Link to="/login" search={{ blocked: undefined }} className="font-semibold text-blue-600 hover:underline">
                     Sign in
                   </Link>
                 </p>

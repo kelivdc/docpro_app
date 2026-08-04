@@ -376,15 +376,15 @@ export function renderInvitationEmail(p: InvitationEmailContent): { subject: str
     expiresLabel,
   } = p
 
-  const headerLogo = logoCid
-    ? `<img src="cid:${logoCid}" alt="Organization logo" style="width:44px;height:44px;border-radius:12px;background:#ffffff;padding:6px;object-fit:contain;display:inline-block;vertical-align:middle;" />`
+  const orgLogo = logoCid
+    ? `<img src="cid:${logoCid}" alt="Organization logo" style="width:64px;height:64px;flex:0 0 64px;box-sizing:border-box;border-radius:12px;border:1px solid #e5e7eb;background:#ffffff;padding:8px;object-fit:contain;display:inline-block;vertical-align:middle;" />`
     : ''
 
-  const orgRow = organizationName
+  const orgRow = organizationName || logoCid
     ? `
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
               <span style="font-size:13px;color:#6b7280;">Organization</span>
-              <span style="font-size:14px;font-weight:700;color:#111827;">${organizationName}</span>
+              <span style="display:inline-flex;align-items:center;gap:10px;max-width:70%;">${orgLogo}${organizationName ? `<span style="font-size:14px;font-weight:700;color:#111827;">${organizationName}</span>` : ''}</span>
             </div>`
     : ''
 
@@ -410,13 +410,8 @@ export function renderInvitationEmail(p: InvitationEmailContent): { subject: str
     <div style="background:#f6f7f9;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
       <div style="max-width:540px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #eceef2;">
         <div style="background:linear-gradient(135deg,#2563eb,#4f46e5);padding:28px 32px;">
-          <div style="display:flex;align-items:center;gap:12px;">
-            ${headerLogo}
-            <div>
-              <div style="color:#ffffff;font-size:22px;font-weight:800;line-height:1.2;">${organizationName || 'DocPro'}</div>
-              <div style="color:#c7d2fe;font-size:13px;margin-top:2px;">Your team knowledge base, answered by AI</div>
-            </div>
-          </div>
+          <div style="color:#ffffff;font-size:22px;font-weight:800;">DocPro</div>
+          <div style="color:#c7d2fe;font-size:13px;margin-top:4px;">Your team knowledge base, answered by AI</div>
         </div>
         <div style="padding:32px;">
           <h1 style="margin:0 0 12px;font-size:22px;line-height:1.35;color:#111827;">You've been invited to collaborate on DocPro</h1>
@@ -728,7 +723,7 @@ export const respondToInvitationFn = createServerFn({ method: 'POST' })
       .where(eq(organizationMembers.id, data.id))
 
     if (existing.length === 0) throw new Error('Invitation not found')
-    if (existing[0].email !== userEmail) throw new Error('This invitation does not belong to you')
+    if (existing[0].email.toLowerCase() !== userEmail.toLowerCase()) throw new Error('This invitation does not belong to you')
 
     await db
       .update(organizationMembers)
