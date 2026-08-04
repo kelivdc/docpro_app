@@ -4,10 +4,12 @@ import { eq, and, sql } from 'drizzle-orm'
 import { auth } from '../../lib/auth'
 import { db } from '../../lib/db'
 import { organizationMembers, type MemberRole, type MemberStatus } from '../../lib/schema/members'
-import { sendEmail, getAppBaseUrl, roleLabel } from '../email'
+import { sendEmail, roleLabel } from '../email'
+import { workspaces } from '../../lib/schema/documents'
 
 export type { MemberRole, MemberStatus }
 import { tenantMap } from '../../lib/schema/tenant'
+import { user } from '../../lib/schema/auth'
 
 function currentUserId(): Promise<string> {
   return auth.api
@@ -19,6 +21,19 @@ function currentUserId(): Promise<string> {
     })
 }
 
+// Resolve the app's public base URL from the incoming request so the same
+// code works in dev (http://localhost:3000) and behind the VPS proxy
+// (https://docpro.nexonace.com). Falls back to the production domain.
+function getAppBaseUrl(): string {
+  const req = getRequest()
+  const host = req?.headers.get('host')
+  if (host) {
+    const proto = req?.headers.get('x-forwarded-proto') ?? (host.includes('localhost') ? 'http' : 'https')
+    return `${proto}://${host}`
+  }
+  return 'https://docpro.nexonace.com'
+}
+
 async function ensureMembersTableExists() {
   try {
     await db.execute(sql`
@@ -28,15 +43,33 @@ async function ensureMembersTableExists() {
         user_id text REFERENCES "user"(id) ON DELETE set null,
         name text,
         email text NOT NULL,
+        invite_code text,
         role text NOT NULL DEFAULT 'member',
         status text NOT NULL DEFAULT 'active',
         created_at timestamp NOT NULL DEFAULT now(),
         updated_at timestamp NOT NULL DEFAULT now()
       )
     `)
+    await db.execute(sql`ALTER TABLE organization_members ADD COLUMN IF NOT EXISTS invite_code text`)
+    await db.execute(
+      sql.raw(`
+        UPDATE organization_members
+        SET invite_code = upper(substr(md5(id || ':' || created_at), 1, 10))
+        WHERE invite_code IS NULL
+      `),
+    )
   } catch (error) {
     console.error('Error ensuring organization_members table:', error)
   }
+}
+
+// Short, unambiguous invite code (no 0/O, 1/I) used for /invite/<code> links.
+const INVITE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+function generateInviteCode(): string {
+  const rnd = crypto.getRandomValues(new Uint8Array(10))
+  let code = ''
+  for (let i = 0; i < 10; i++) code += INVITE_ALPHABET[rnd[i] % INVITE_ALPHABET.length]
+  return code
 }
 
 export interface MemberView {
@@ -45,6 +78,7 @@ export interface MemberView {
   userId: string | null
   name: string
   email: string
+  inviteCode: string | null
   role: MemberRole
   status: MemberStatus
   createdAt: string
@@ -76,6 +110,7 @@ export const getMembersFn = createServerFn({ method: 'GET' }).handler(async (): 
       userId: r.userId,
       name: displayName,
       email: r.email,
+      inviteCode: r.inviteCode ?? null,
       role: r.role as MemberRole,
       status: r.status as MemberStatus,
       createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : new Date().toISOString(),
@@ -90,6 +125,7 @@ export const getMembersFn = createServerFn({ method: 'GET' }).handler(async (): 
     userId: userId,
     name: (user?.name ?? 'Account Owner') + ' (You)',
     email: user?.email ?? '',
+    inviteCode: null,
     role: 'owner',
     status: 'active',
     createdAt: user?.createdAt ? new Date(user.createdAt).toISOString() : new Date().toISOString(),
@@ -132,14 +168,16 @@ export const inviteMemberFn = createServerFn({ method: 'POST' })
     const now = new Date()
     const nameFromEmail = data.email.split('@')[0]
     const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+    const inviteCode = generateInviteCode()
 
     await db.insert(organizationMembers).values({
       id,
       ownerId: userId,
       name: nameFromEmail,
       email: data.email,
+      inviteCode,
       role: data.role,
-      status: 'active',
+      status: 'pending',
       createdAt: now,
       updatedAt: now,
       expiresAt,
@@ -148,7 +186,7 @@ export const inviteMemberFn = createServerFn({ method: 'POST' })
     // Send invitation email (non-blocking on failure so the invite still succeeds).
     void sendInvitationEmail({
       to: data.email,
-      memberId: id,
+      inviteCode,
       inviterName,
       inviterEmail,
       ownerId: userId,
@@ -165,6 +203,7 @@ export const inviteMemberFn = createServerFn({ method: 'POST' })
         userId: null,
         name: nameFromEmail,
         email: data.email,
+        inviteCode,
         role: data.role,
         status: 'pending',
         createdAt: now.toISOString(),
@@ -175,7 +214,7 @@ export const inviteMemberFn = createServerFn({ method: 'POST' })
 
 async function sendInvitationEmail(opts: {
   to: string
-  memberId: string
+  inviteCode: string
   inviterName: string
   inviterEmail: string
   ownerId: string
@@ -183,86 +222,154 @@ async function sendInvitationEmail(opts: {
   expiresAt: Date
   baseUrl: string
 }) {
-  const { to, memberId, inviterName, inviterEmail, ownerId, role, expiresAt, baseUrl } = opts
+  const { to, inviteCode, inviterName, inviterEmail, ownerId, role, expiresAt, baseUrl } = opts
   try {
-    let orgName = 'their organization'
+    // Workspace info: default workspace (name + description), fallback to org name.
+    let workspaceName = 'My Workspace'
+    let workspaceDescription = 'A shared knowledge base where your team can upload documents, search, and get AI answers.'
+    try {
+      const ws = await db.query.workspaces.findFirst({
+        where: and(eq(workspaces.ownerId, ownerId), eq(workspaces.isDefault, true)),
+        columns: { name: true, description: true },
+      })
+      if (ws?.name) workspaceName = ws.name
+      if (ws?.description) workspaceDescription = ws.description
+    } catch { /* keep defaults */ }
     try {
       const tm = await db.query.tenantMap.findFirst({
         where: eq(tenantMap.userId, ownerId),
         columns: { orgName: true },
       })
-      if (tm?.orgName) orgName = tm.orgName
+      if (tm?.orgName) workspaceName = tm.orgName
     } catch { /* keep default */ }
 
-    const acceptUrl = `${baseUrl}/dashboard/members`
+    const acceptUrl = `${baseUrl}/invite/${inviteCode}`
+    const days = Math.max(1, Math.ceil((expiresAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
     const expiresLabel = expiresAt.toLocaleDateString('en-US', {
       day: 'numeric',
       month: 'long',
       year: 'numeric',
       timeZone: 'UTC',
     })
+    const permissions = ROLE_PERMISSIONS[role] ?? ROLE_PERMISSIONS.member
+    const { subject, text, html } = renderInvitationEmail({
+      to,
+      acceptUrl,
+      inviterName,
+      inviterEmail,
+      workspaceName,
+      workspaceDescription,
+      role,
+      permissions,
+      days,
+      expiresLabel,
+    })
 
-    const html = `
-      <div style="background:#f6f7f9;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
-        <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #eceef2;">
-          <div style="background:linear-gradient(135deg,#2563eb,#4f46e5);padding:28px 32px;">
-            <div style="color:#ffffff;font-size:22px;font-weight:800;">DocPro</div>
+    await sendEmail({ to, subject, text, html })
+  } catch (e) {
+    console.error(`[members] failed to send invitation email to ${to} (${inviteCode}):`, e)
+  }
+}
+
+const ROLE_PERMISSIONS: Record<MemberRole, string> = {
+  owner: 'Full access — manage everything including members, billing, and knowledge.',
+  admin: 'Full access to management and knowledge, including adding or removing members.',
+  member: 'Can upload knowledge, run AI searches, and chat with the knowledge base.',
+  viewer: 'Read-only access — view documents and use AI chat, without editing.',
+}
+
+export interface InvitationEmailContent {
+  to: string
+  acceptUrl: string
+  inviterName: string
+  inviterEmail: string
+  workspaceName: string
+  workspaceDescription: string
+  role: MemberRole
+  permissions: string
+  days: number
+  expiresLabel: string
+}
+
+// Pure builder so the template can be inspected/tested without sending.
+export function renderInvitationEmail(p: InvitationEmailContent): { subject: string; text: string; html: string } {
+  const { to, acceptUrl, inviterName, inviterEmail, workspaceName, workspaceDescription, role, permissions, days, expiresLabel } = p
+  const html = `
+    <div style="background:#f6f7f9;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+      <div style="max-width:540px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #eceef2;">
+        <div style="background:linear-gradient(135deg,#2563eb,#4f46e5);padding:28px 32px;">
+          <div style="color:#ffffff;font-size:22px;font-weight:800;">DocPro</div>
+          <div style="color:#c7d2fe;font-size:13px;margin-top:4px;">Your team knowledge base, answered by AI</div>
+        </div>
+        <div style="padding:32px;">
+          <h1 style="margin:0 0 12px;font-size:22px;line-height:1.35;color:#111827;">You've been invited to collaborate on DocPro</h1>
+          <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#4b5563;">
+            You'll be able to access your team's knowledge base and use AI to search,
+            summarize, and answer questions from company documents.
+          </p>
+
+          <div style="background:#f8fafc;border:1px solid #eef1f6;border-radius:12px;padding:20px;margin-bottom:24px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+              <span style="font-size:13px;color:#6b7280;">Invited by</span>
+              <span style="font-size:14px;font-weight:700;color:#111827;">${inviterName}${inviterEmail ? ` <a href="mailto:${inviterEmail}" style="color:#2563eb;text-decoration:none;font-weight:600;">&lt;${inviterEmail}&gt;</a>` : ''}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+              <span style="font-size:13px;color:#6b7280;">Workspace</span>
+              <span style="font-size:14px;font-weight:700;color:#111827;">${workspaceName}</span>
+            </div>
+            <div style="margin-bottom:12px;">
+              <div style="font-size:13px;color:#6b7280;margin-bottom:2px;">About this workspace</div>
+              <div style="font-size:14px;color:#374151;">${workspaceDescription}</div>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+              <span style="font-size:13px;color:#6b7280;">Your role</span>
+              <span style="font-size:14px;font-weight:700;color:#111827;">${roleLabel(role)}</span>
+            </div>
+            <div>
+              <div style="font-size:13px;color:#6b7280;margin-bottom:2px;">Permissions</div>
+              <div style="font-size:14px;color:#374151;">${permissions}</div>
+            </div>
           </div>
-          <div style="padding:32px;">
-            <h1 style="margin:0 0 8px;font-size:20px;color:#111827;">You've been invited to join a team</h1>
-            <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#4b5563;">
-              <strong style="color:#111827;">${inviterName}</strong> (${
-                inviterEmail ? `<a href="mailto:${inviterEmail}" style="color:#2563eb;">${inviterEmail}</a>` : ''
-              })
-              has invited you to join <strong style="color:#111827;">${orgName}</strong> on DocPro.
-            </p>
 
-            <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
-              <tr>
-                <td style="padding:10px 12px;font-size:13px;color:#6b7280;width:120px;">Organization</td>
-                <td style="padding:10px 12px;font-size:14px;font-weight:700;color:#111827;">${orgName}</td>
-              </tr>
-              <tr>
-                <td style="padding:10px 12px;font-size:13px;color:#6b7280;">Your role</td>
-                <td style="padding:10px 12px;font-size:14px;font-weight:700;color:#111827;">${roleLabel(role)}</td>
-              </tr>
-              <tr>
-                <td style="padding:10px 12px;font-size:13px;color:#6b7280;">Invitation expires</td>
-                <td style="padding:10px 12px;font-size:14px;font-weight:700;color:#111827;">${expiresLabel}</td>
-              </tr>
-            </table>
-
-            <a href="${acceptUrl}" style="display:block;text-align:center;background:#2563eb;color:#ffffff;font-weight:700;font-size:15px;padding:14px 24px;border-radius:12px;text-decoration:none;">
-              View Invitation
-            </a>
-
-            <p style="margin:24px 0 0;font-size:13px;line-height:1.6;color:#6b7280;">
-              If you don't have a DocPro account yet, create one with the same email address
-              (${to}), then open the invitation from the
-              <strong>Team Members</strong> page and click <strong>Accept</strong>.
-            </p>
-            <p style="margin:16px 0 0;font-size:12px;color:#9ca3af;">
-              If the button doesn't work, copy this link into your browser:<br/>
-              <a href="${acceptUrl}" style="color:#2563eb;word-break:break-all;">${acceptUrl}</a>
-            </p>
+          <div style="font-size:13px;color:#6b7280;margin-bottom:24px;text-align:center;">
+            This invitation expires in <strong style="color:#111827;">${days} day${days === 1 ? '' : 's'}</strong>
+            <span style="color:#9ca3af;"> (${expiresLabel})</span>
           </div>
+
+          <a href="${acceptUrl}" style="display:block;text-align:center;background:#2563eb;color:#ffffff;font-weight:700;font-size:15px;padding:14px 24px;border-radius:12px;text-decoration:none;">
+            Accept Invitation
+          </a>
+
+          <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;text-align:center;">
+            If the button doesn't work, copy this link into your browser:<br/>
+            <a href="${acceptUrl}" style="color:#2563eb;word-break:break-all;">${acceptUrl}</a>
+          </p>
+        </div>
+
+        <div style="border-top:1px solid #eef1f6;padding:24px 32px;background:#fafbfc;">
+          <div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:4px;">Need help?</div>
+          <a href="mailto:support@docpro.ai" style="font-size:13px;color:#2563eb;text-decoration:none;">support@docpro.ai</a>
+          <div style="font-size:12px;color:#9ca3af;margin-top:12px;">This invitation was sent to ${to}</div>
         </div>
       </div>
-    `
-    const text = [
-      `You've been invited to join ${orgName} on DocPro.`,
-      `Invited by ${inviterName}${inviterEmail ? ` (${inviterEmail})` : ''}.`,
-      `Role: ${roleLabel(role)}`,
-      `This invitation expires on ${expiresLabel}.`,
-      '',
-      `To accept, open ${acceptUrl}, sign in or create an account with ${to},`,
-      `and click Accept on the Team Members page.`,
-    ].join('\n')
-
-    await sendEmail({ to, subject: `You've been invited to join ${orgName} on DocPro`, text, html })
-  } catch (e) {
-    console.error(`[members] failed to send invitation email to ${to} (${memberId}):`, e)
-  }
+    </div>
+  `
+  const text = [
+    `You've been invited to collaborate on DocPro. You'll be able to access your team's`,
+    `knowledge base and use AI to search, summarize, and answer questions from company documents.`,
+    '',
+    `Invited by: ${inviterName}${inviterEmail ? ` (${inviterEmail})` : ''}`,
+    `Workspace: ${workspaceName}`,
+    `About: ${workspaceDescription}`,
+    `Role: ${roleLabel(role)} — ${permissions}`,
+    `This invitation expires in ${days} day${days === 1 ? '' : 's'} (${expiresLabel}).`,
+    '',
+    `Accept the invitation: ${acceptUrl}`,
+    '',
+    'Need help? support@docpro.ai',
+    `This invitation was sent to ${to}`,
+  ].join('\n')
+  return { subject: 'You\'ve been invited to collaborate on DocPro', text, html }
 }
 
 export const updateMemberRoleFn = createServerFn({ method: 'POST' })
@@ -390,6 +497,82 @@ export const getMyInvitationsFn = createServerFn({ method: 'GET' }).handler(asyn
   return { invitations }
 })
 
+export interface InvitationByCode {
+  id: string
+  email: string
+  inviterName: string
+  inviterEmail: string
+  workspaceName: string
+  workspaceDescription: string
+  role: MemberRole
+  status: MemberStatus
+  expiresAt: string | null
+  expiresInDays: number | null
+}
+
+/** Public lookup for the /invite/<code> page (no auth required — the code is the token). */
+export const getInvitationByCodeFn = createServerFn({ method: 'GET' })
+  .validator((data: unknown) => {
+    const d = data as { code?: string }
+    if (!d?.code?.trim()) throw new Error('Invitation code is required')
+    return { code: d.code.trim().toUpperCase() }
+  })
+  .handler(async ({ data }): Promise<InvitationByCode | null> => {
+    await ensureMembersTableExists()
+    const [row] = await db
+      .select()
+      .from(organizationMembers)
+      .where(eq(organizationMembers.inviteCode, data.code))
+    if (!row) return null
+
+    let inviterName = 'Your team'
+    let inviterEmail = ''
+    try {
+      const inviter = await db.query.user.findFirst({
+        where: eq(user.id, row.ownerId),
+        columns: { name: true, email: true },
+      })
+      if (inviter?.name) inviterName = inviter.name
+      inviterEmail = inviter?.email ?? ''
+    } catch { /* keep default */ }
+
+    let workspaceName = 'My Workspace'
+    let workspaceDescription = 'A shared knowledge base where your team can upload documents, search, and get AI answers.'
+    try {
+      const ws = await db.query.workspaces.findFirst({
+        where: and(eq(workspaces.ownerId, row.ownerId), eq(workspaces.isDefault, true)),
+        columns: { name: true, description: true },
+      })
+      if (ws?.name) workspaceName = ws.name
+      if (ws?.description) workspaceDescription = ws.description
+    } catch { /* keep defaults */ }
+    try {
+      const tm = await db.query.tenantMap.findFirst({
+        where: eq(tenantMap.userId, row.ownerId),
+        columns: { orgName: true },
+      })
+      if (tm?.orgName) workspaceName = tm.orgName
+    } catch { /* keep default */ }
+
+    const expiresAt = row.expiresAt ? new Date(row.expiresAt) : null
+    const expiresInDays = expiresAt
+      ? Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
+      : null
+
+    return {
+      id: row.id,
+      email: row.email,
+      inviterName,
+      inviterEmail,
+      workspaceName,
+      workspaceDescription,
+      role: row.role as MemberRole,
+      status: row.status as MemberStatus,
+      expiresAt: expiresAt ? expiresAt.toISOString() : null,
+      expiresInDays,
+    }
+  })
+
 /** Called by the invitee (not the owner) to accept or reject their invitation. */
 export const respondToInvitationFn = createServerFn({ method: 'POST' })
   .validator((data: unknown) => {
@@ -414,7 +597,11 @@ export const respondToInvitationFn = createServerFn({ method: 'POST' })
 
     await db
       .update(organizationMembers)
-      .set({ status: data.action, updatedAt: new Date() })
+      .set({
+        status: data.action,
+        ...(data.action === 'accepted' && session?.user?.id ? { userId: session.user.id } : {}),
+        updatedAt: new Date(),
+      })
       .where(eq(organizationMembers.id, data.id))
 
     return { ok: true }

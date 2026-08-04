@@ -12,6 +12,7 @@ export const organizationMembers = pgTable('organization_members', {
   userId: text('user_id').references(() => user.id, { onDelete: 'set null' }),
   name: text('name'),
   email: text('email').notNull(),
+  inviteCode: text('invite_code'),
   role: text('role').notNull().default('member'),
   status: text('status').notNull().default('active'),
   expiresAt: timestamp('expires_at'),

@@ -1,5 +1,4 @@
 import nodemailer from 'nodemailer'
-import { getRequest } from '@tanstack/react-start/server'
 
 let transporter: nodemailer.Transporter | null = null
 
@@ -17,19 +16,6 @@ function getTransporter(): nodemailer.Transporter | null {
     auth: { user, pass },
   })
   return transporter
-}
-
-// Resolve the app's public base URL from the incoming request so the same
-// code works in dev (http://localhost:3000) and behind the VPS proxy
-// (https://docpro.nexonace.com). Falls back to the production domain.
-export function getAppBaseUrl(): string {
-  const req = getRequest()
-  const host = req?.headers.get('host')
-  if (host) {
-    const proto = req?.headers.get('x-forwarded-proto') ?? (host.includes('localhost') ? 'http' : 'https')
-    return `${proto}://${host}`
-  }
-  return 'https://docpro.nexonace.com'
 }
 
 export interface MailOptions {

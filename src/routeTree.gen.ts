@@ -22,6 +22,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
+import { Route as InviteCodeRouteImport } from './routes/invite.$code'
 import { Route as DashboardProfileRouteImport } from './routes/dashboard/profile'
 import { Route as DashboardPlansRouteImport } from './routes/dashboard/plans'
 import { Route as DashboardMembersRouteImport } from './routes/dashboard/members'
@@ -97,6 +98,11 @@ const DashboardIndexRoute = DashboardIndexRouteImport.update({
   path: '/',
   getParentRoute: () => DashboardRoute,
 } as any)
+const InviteCodeRoute = InviteCodeRouteImport.update({
+  id: '/invite/$code',
+  path: '/invite/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardProfileRoute = DashboardProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -164,6 +170,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/members': typeof DashboardMembersRoute
   '/dashboard/plans': typeof DashboardPlansRoute
   '/dashboard/profile': typeof DashboardProfileRoute
+  '/invite/$code': typeof InviteCodeRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
@@ -187,6 +194,7 @@ export interface FileRoutesByTo {
   '/dashboard/members': typeof DashboardMembersRoute
   '/dashboard/plans': typeof DashboardPlansRoute
   '/dashboard/profile': typeof DashboardProfileRoute
+  '/invite/$code': typeof InviteCodeRoute
   '/dashboard': typeof DashboardIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
@@ -212,6 +220,7 @@ export interface FileRoutesById {
   '/dashboard/members': typeof DashboardMembersRoute
   '/dashboard/plans': typeof DashboardPlansRoute
   '/dashboard/profile': typeof DashboardProfileRoute
+  '/invite/$code': typeof InviteCodeRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
@@ -238,6 +247,7 @@ export interface FileRouteTypes {
     | '/dashboard/members'
     | '/dashboard/plans'
     | '/dashboard/profile'
+    | '/invite/$code'
     | '/dashboard/'
     | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
@@ -261,6 +271,7 @@ export interface FileRouteTypes {
     | '/dashboard/members'
     | '/dashboard/plans'
     | '/dashboard/profile'
+    | '/invite/$code'
     | '/dashboard'
     | '/api/auth/$'
   id:
@@ -285,6 +296,7 @@ export interface FileRouteTypes {
     | '/dashboard/members'
     | '/dashboard/plans'
     | '/dashboard/profile'
+    | '/invite/$code'
     | '/dashboard/'
     | '/api/auth/$'
   fileRoutesById: FileRoutesById
@@ -303,6 +315,7 @@ export interface RootRouteChildren {
   RegisterRoute: typeof RegisterRoute
   TermsRoute: typeof TermsRoute
   ApiTtsRoute: typeof ApiTtsRoute
+  InviteCodeRoute: typeof InviteCodeRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -398,6 +411,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/dashboard/'
       preLoaderRoute: typeof DashboardIndexRouteImport
       parentRoute: typeof DashboardRoute
+    }
+    '/invite/$code': {
+      id: '/invite/$code'
+      path: '/invite/$code'
+      fullPath: '/invite/$code'
+      preLoaderRoute: typeof InviteCodeRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/dashboard/profile': {
       id: '/dashboard/profile'
@@ -505,6 +525,7 @@ const rootRouteChildren: RootRouteChildren = {
   RegisterRoute: RegisterRoute,
   TermsRoute: TermsRoute,
   ApiTtsRoute: ApiTtsRoute,
+  InviteCodeRoute: InviteCodeRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport

@@ -301,6 +301,7 @@ async function main() {
       user_id text REFERENCES "user"(id) ON DELETE set null,
       name text,
       email text NOT NULL,
+      invite_code text,
       role text NOT NULL DEFAULT 'member',
       status text NOT NULL DEFAULT 'active',
       expires_at timestamp,
@@ -312,7 +313,18 @@ async function main() {
     sql`ALTER TABLE organization_members ADD COLUMN IF NOT EXISTS expires_at timestamp`,
   )
   await db.execute(
+    sql`ALTER TABLE organization_members ADD COLUMN IF NOT EXISTS invite_code text`,
+  )
+  await db.execute(
     sql`ALTER TABLE organization_members ALTER COLUMN name DROP NOT NULL`,
+  )
+  // Backfill invite codes for rows created before the column existed.
+  await db.execute(
+    sql.raw(`
+      UPDATE organization_members
+      SET invite_code = upper(substr(md5(id || ':' || created_at), 1, 10))
+      WHERE invite_code IS NULL
+    `),
   )
 
   // Migrate the embedding column if its dimension changed (idempotent).
