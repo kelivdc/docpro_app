@@ -19,6 +19,7 @@ export interface ProfileData {
   name: string | null
   email: string
   orgName: string | null
+  orgLogoUrl: string | null
   tier: string
 }
 
@@ -30,7 +31,7 @@ export const getProfileFn = createServerFn({ method: 'GET' }).handler(async (): 
   try {
     tm = await db.query.tenantMap.findFirst({
       where: eq(tenantMap.userId, userId),
-      columns: { orgName: true, tier: true },
+      columns: { orgName: true, orgLogo: true, tier: true },
     })
   } catch (error) {
     console.error('Error fetching profile from tenant_map:', error)
@@ -38,11 +39,23 @@ export const getProfileFn = createServerFn({ method: 'GET' }).handler(async (): 
     try {
       const { getTenantContext } = await import('../tenant')
       const ctx = await getTenantContext(userId)
-      tm = { orgName: null, tier: ctx.tier }
+      tm = { orgName: null, orgLogo: null, tier: ctx.tier }
     } catch (innerError) {
       console.error('Error ensuring tenant context:', innerError)
       // Return default values
-      tm = { orgName: null, tier: 'free' }
+      tm = { orgName: null, orgLogo: null, tier: 'free' }
+    }
+  }
+
+  let orgLogoUrl: string | null = null
+  if (tm?.orgLogo) {
+    try {
+      const { getTenantContext } = await import('../tenant')
+      const { getPresignedUrl } = await import('../minio')
+      const ctx = await getTenantContext(userId)
+      orgLogoUrl = await getPresignedUrl(ctx.bucket, tm.orgLogo, 60 * 60)
+    } catch (error) {
+      console.error('Error building org logo URL:', error)
     }
   }
 
@@ -50,6 +63,7 @@ export const getProfileFn = createServerFn({ method: 'GET' }).handler(async (): 
     name: session?.user?.name ?? null,
     email: session?.user?.email ?? '',
     orgName: tm?.orgName ?? null,
+    orgLogoUrl,
     tier: tm?.tier ?? 'free',
   }
 })
@@ -83,4 +97,45 @@ export const updateOrgNameFn = createServerFn({ method: 'POST' })
       console.error('Error updating org name:', error)
       throw new Error(`Failed to update organization name: ${error.message}`)
     }
+  })
+
+const MAX_LOGO_BYTES = 3 * 1024 * 1024 // 3 MB
+
+const LOGO_EXT: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+  'image/svg+xml': 'svg',
+  'image/avif': 'avif',
+}
+
+export const updateOrgLogoFn = createServerFn({ method: 'POST' })
+  .validator((data: unknown) => {
+    const d = data as { base64?: string; mime?: string; size?: number }
+    if (!d?.base64) throw new Error('Image data is required')
+    if (!d?.mime) throw new Error('Image type is required')
+    if (!LOGO_EXT[d.mime]) throw new Error('Only PNG, JPEG, WEBP, GIF, SVG or AVIF images are supported')
+    if (d.size != null && d.size > MAX_LOGO_BYTES) throw new Error('Maximum logo size is 3 MB')
+    return { base64: d.base64, mime: d.mime }
+  })
+  .handler(async ({ data }): Promise<{ ok: true; orgLogoUrl: string }> => {
+    const userId = await currentUserId()
+    const buffer = Buffer.from(data.base64, 'base64')
+    if (buffer.length === 0) throw new Error('Empty image data')
+    if (buffer.length > MAX_LOGO_BYTES) throw new Error('Maximum logo size is 3 MB')
+
+    const { getTenantContext } = await import('../tenant')
+    const { putObject, getPresignedUrl } = await import('../minio')
+    const ctx = await getTenantContext(userId)
+
+    // Deterministic key so re-uploads overwrite the same object (no orphan cleanup).
+    const key = `${userId}/org-logo/.${LOGO_EXT[data.mime]}`
+    await putObject(ctx.bucket, key, buffer, buffer.length)
+
+    await db.update(tenantMap).set({ orgLogo: key, updatedAt: new Date() }).where(eq(tenantMap.userId, userId))
+
+    const orgLogoUrl = await getPresignedUrl(ctx.bucket, key, 60 * 60)
+    return { ok: true, orgLogoUrl }
   })

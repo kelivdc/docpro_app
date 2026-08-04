@@ -229,6 +229,8 @@ async function sendInvitationEmail(opts: {
     let workspaceIcon = '🏛'
     let workspaceColor = '#2563EB'
     let organizationName: string | null = null
+    let logoCid: string | null = null
+    let attachments: Array<{ filename?: string; content: Buffer; cid: string }> = []
     try {
       const ws = await db.query.workspaces.findFirst({
         where: and(eq(workspaces.ownerId, ownerId), eq(workspaces.isDefault, true)),
@@ -242,10 +244,23 @@ async function sendInvitationEmail(opts: {
     try {
       const tm = await db.query.tenantMap.findFirst({
         where: eq(tenantMap.userId, ownerId),
-        columns: { orgName: true },
+        columns: { orgName: true, orgLogo: true, bucket: true },
       })
       if (tm?.orgName) organizationName = tm.orgName
-    } catch { /* keep default */ }
+
+      // Organization logo (uploaded on the profile page) as an inline email
+      // attachment so it always renders regardless of presigned-URL expiry.
+      if (tm?.orgLogo) {
+        const { getObject } = await import('../minio')
+        const buf = await getObject(tm.bucket, tm.orgLogo)
+        if (buf.length > 0) {
+          logoCid = 'docpro-org-logo'
+          attachments = [{ filename: 'org-logo', content: buf, cid: logoCid }]
+        }
+      }
+    } catch (e) {
+      console.error('[members] failed to load org logo for invitation email:', e)
+    }
 
     const acceptUrl = `${baseUrl}/invite/${inviteCode}`
     const days = Math.max(1, Math.ceil((expiresAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
@@ -267,13 +282,14 @@ async function sendInvitationEmail(opts: {
       workspaceIcon,
       workspaceColor,
       workspaceDescription,
+      logoCid,
       role,
       permissions,
       days,
       expiresLabel,
     })
 
-    await sendEmail({ to, subject, text, html })
+    await sendEmail({ to, subject, text, html, attachments })
   } catch (e) {
     console.error(`[members] failed to send invitation email to ${to} (${inviteCode}):`, e)
   }
@@ -310,6 +326,7 @@ export interface InvitationEmailContent {
   workspaceIcon: string
   workspaceColor: string
   workspaceDescription: string | null
+  logoCid: string | null
   role: MemberRole
   permissions: string[]
   days: number
@@ -352,11 +369,16 @@ export function renderInvitationEmail(p: InvitationEmailContent): { subject: str
     workspaceIcon,
     workspaceColor,
     workspaceDescription,
+    logoCid,
     role,
     permissions,
     days,
     expiresLabel,
   } = p
+
+  const headerLogo = logoCid
+    ? `<img src="cid:${logoCid}" alt="Organization logo" style="width:44px;height:44px;border-radius:12px;background:#ffffff;padding:6px;object-fit:contain;display:inline-block;vertical-align:middle;" />`
+    : ''
 
   const orgRow = organizationName
     ? `
@@ -388,8 +410,13 @@ export function renderInvitationEmail(p: InvitationEmailContent): { subject: str
     <div style="background:#f6f7f9;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
       <div style="max-width:540px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #eceef2;">
         <div style="background:linear-gradient(135deg,#2563eb,#4f46e5);padding:28px 32px;">
-          <div style="color:#ffffff;font-size:22px;font-weight:800;">DocPro</div>
-          <div style="color:#c7d2fe;font-size:13px;margin-top:4px;">Your team knowledge base, answered by AI</div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            ${headerLogo}
+            <div>
+              <div style="color:#ffffff;font-size:22px;font-weight:800;line-height:1.2;">${organizationName || 'DocPro'}</div>
+              <div style="color:#c7d2fe;font-size:13px;margin-top:2px;">Your team knowledge base, answered by AI</div>
+            </div>
+          </div>
         </div>
         <div style="padding:32px;">
           <h1 style="margin:0 0 12px;font-size:22px;line-height:1.35;color:#111827;">You've been invited to collaborate on DocPro</h1>

@@ -23,6 +23,7 @@ export interface MailOptions {
   subject: string
   text: string
   html: string
+  attachments?: Array<{ filename?: string; content: Buffer; cid: string }>
 }
 
 // Sends an email via SMTP. Returns true when sent, false when SMTP is not

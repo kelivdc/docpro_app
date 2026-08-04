@@ -269,6 +269,7 @@ async function main() {
   // Top-up / subscription support
   await db.execute(sql.raw(`ALTER TABLE tenant_map ADD COLUMN IF NOT EXISTS topup_used integer NOT NULL DEFAULT 0`))
   await db.execute(sql.raw(`ALTER TABLE tenant_map ADD COLUMN IF NOT EXISTS org_name text`))
+  await db.execute(sql.raw(`ALTER TABLE tenant_map ADD COLUMN IF NOT EXISTS org_logo text`))
 
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS subscriptions (

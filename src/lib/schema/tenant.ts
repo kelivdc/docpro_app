@@ -27,6 +27,7 @@ export const tenantMap = pgTable('tenant_map', {
   llmMode: text('llm_mode').notNull().default('cloud'),
   orgId: text('org_id'),
   orgName: text('org_name'),
+  orgLogo: text('org_logo'),
   deletedAt: timestamp('deleted_at'),
   purgedAt: timestamp('purged_at'),
   topupUsed: integer('topup_used').notNull().default(0),

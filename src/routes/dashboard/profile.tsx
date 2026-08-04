@@ -1,12 +1,12 @@
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { DashboardHeader } from './index'
 import { Route as DashboardRoute } from '../dashboard'
 import { signOut } from '../../lib/auth-client'
 import { deleteAccount, cancelDeleteAccount } from '../../server/functions/delete-account'
 import { DonutChart } from '../../components/DonutChart'
 import { getSubscriptionStatus } from '../../server/functions/subscription'
-import { getProfileFn, updateOrgNameFn } from '../../server/functions/profile'
+import { getProfileFn, updateOrgNameFn, updateOrgLogoFn } from '../../server/functions/profile'
 
 export const Route = createFileRoute('/dashboard/profile')({
   loader: async () => {
@@ -31,6 +31,7 @@ export const Route = createFileRoute('/dashboard/profile')({
           name: null,
           email: '',
           orgName: null,
+          orgLogoUrl: null,
           tier: 'free'
         }
       }
@@ -71,9 +72,59 @@ function ProfilePage() {
   const [deleting, setDeleting] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
 
+  const [logoPreview, setLogoPreview] = useState<string | null>(profile.orgLogoUrl)
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [logoError, setLogoError] = useState<string | null>(null)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   useEffect(() => {
     setOrgName(profile.orgName ?? '')
   }, [profile.orgName])
+
+  const handleLogoSelect = (file: File | null) => {
+    setLogoError(null)
+    setLogoFile(file)
+    if (!file) {
+      setLogoPreview(profile.orgLogoUrl)
+      return
+    }
+    if (!file.type.startsWith('image/')) {
+      setLogoError('Please choose an image file (PNG, JPEG, WEBP, GIF, SVG or AVIF).')
+      setLogoFile(null)
+      return
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      setLogoError('Logo must be 3 MB or smaller.')
+      setLogoFile(null)
+      return
+    }
+    setLogoPreview(URL.createObjectURL(file))
+  }
+
+  const handleUploadLogo = async () => {
+    if (!logoFile) return
+    setUploadingLogo(true)
+    setLogoError(null)
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '')
+        reader.onerror = () => reject(new Error('Failed to read file'))
+        reader.readAsDataURL(logoFile)
+      })
+      await updateOrgLogoFn({
+        data: { base64, mime: logoFile.type, size: logoFile.size },
+      })
+      setLogoFile(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      navigate({ to: '/dashboard/profile', replace: true })
+    } catch (error: any) {
+      console.error('Error uploading logo:', error)
+      setLogoError(error?.message ?? 'Failed to upload logo. Please try again.')
+      setUploadingLogo(false)
+    }
+  }
 
   const handleSaveOrgName = async () => {
     setSavingOrg(true)
@@ -203,6 +254,42 @@ function ProfilePage() {
               >
                 Manage Members →
               </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Organization logo */}
+        <div className="mb-6 rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-6">
+          <h2 className="mb-4 text-base font-bold text-[var(--fg)]">Logo</h2>
+          <div className="flex items-center gap-4">
+            <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg)]">
+              {logoPreview ? (
+                <img src={logoPreview} alt="Organization logo" className="h-full w-full object-contain" />
+              ) : (
+                <span className="text-2xl font-bold text-[var(--mutfg)]">{(orgName ?? 'O').charAt(0).toUpperCase()}</span>
+              )}
+            </div>
+            <div className="flex-1">
+              <div className="flex flex-wrap gap-3">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,image/avif"
+                  onChange={(e) => handleLogoSelect(e.target.files?.[0] ?? null)}
+                  className="block w-full max-w-xs text-sm text-[var(--mutfg)] file:mr-3 file:rounded-xl file:border-0 file:bg-blue-600 file:px-4 file:py-2 file:text-sm file:font-bold file:text-white file:hover:bg-blue-700"
+                />
+                {logoFile && (
+                  <button
+                    onClick={handleUploadLogo}
+                    disabled={uploadingLogo}
+                    className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-bold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {uploadingLogo ? 'Uploading…' : 'Upload'}
+                  </button>
+                )}
+              </div>
+              <p className="mt-2 text-xs text-[var(--mutfg)]">Upload your organization logo. PNG, JPEG, WEBP, GIF, SVG or AVIF, max 3 MB.</p>
+              {logoError && <p className="mt-1 text-xs font-medium text-red-500">{logoError}</p>}
             </div>
           </div>
         </div>
