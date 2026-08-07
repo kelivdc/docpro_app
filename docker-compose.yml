@@ -57,6 +57,12 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://${DB_USER:-docpro}:${DB_PASSWORD:-docpro_secret}@postgres:5432/${DB_NAME:-docpro}
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-s3}
+      ACCESS_HOST: ${ACCESS_HOST:-}
+      ACCESS_REGION: ${ACCESS_REGION:-}
+      ACCESS_BUCKET: ${ACCESS_BUCKET:-}
+      ACCESS_ID: ${ACCESS_ID:-}
+      ACCESS_SECRET: ${ACCESS_SECRET:-}
       MINIO_ENDPOINT: http://minio:9000
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-docpro}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-docpro_secret}

@@ -163,10 +163,8 @@ export const deleteDocument = createServerFn({ method: 'POST' })
     if (!doc || doc.workspaceId !== data.workspaceId) throw new Error('Document not found')
 
     await getVectorStore(ownerId).then((s) => s.deleteByDocument(data.workspaceId, data.id))
-    if (doc.objectKey) {
-      const ctx = await getTenantContext(ownerId)
-      await deleteObject(ctx.bucket, doc.objectKey).catch(() => {})
-    }
+    const ctx = await getTenantContext(ownerId)
+    if (doc.objectKey) await deleteObject(ctx.bucket, doc.objectKey)
     await db.delete(documents).where(eq(documents.id, data.id))
     return { ok: true }
   })
@@ -208,11 +206,11 @@ export const updateDocument = createServerFn({ method: 'POST' })
       const buffer = Buffer.from(data.base64, 'base64')
       // Remove old vector chunks
       await getVectorStore(ownerId).then((s) => s.deleteByDocument(data.workspaceId, data.id))
-      // Remove old MinIO object
+      // Remove old MinIO object (must succeed before re-ingesting — no orphan)
       const ctx = await getTenantContext(ownerId)
       if (doc.objectKey) {
         const { deleteObject } = await import('../minio')
-        await deleteObject(ctx.bucket, doc.objectKey).catch(() => {})
+        await deleteObject(ctx.bucket, doc.objectKey)
       }
       // Re-ingest with the same document ID (workspaceId is preserved — AD-WS-5)
       return ingestDocument({

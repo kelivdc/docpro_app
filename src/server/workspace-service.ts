@@ -122,7 +122,7 @@ export async function deleteWorkspace(ownerId: string, id: string): Promise<void
 
   const ctx = await getTenantContext(ownerId)
   for (const d of docs) {
-    if (d.objectKey) await deleteObject(ctx.bucket, d.objectKey).catch(() => {})
+    if (d.objectKey) await deleteObject(ctx.bucket, d.objectKey)
   }
 
   // Remove references from chat sessions.

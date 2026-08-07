@@ -41,7 +41,7 @@ export async function purgeAccountData(userId: string, schemaName: string): Prom
     [userId],
   )
   for (const d of docs.rows) {
-    if (d.objectKey) await deleteObject(bucket, d.objectKey).catch(() => {})
+    if (d.objectKey) await deleteObject(bucket, d.objectKey)
   }
 
   await pool.query(`DELETE FROM person.chunks WHERE owner_id = $1`, [userId])
